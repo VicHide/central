@@ -40,6 +40,7 @@ class FanCapsApp(ctk.CTk):
         self.anime_items = []
         self.filtered_anime = []
         self.current_anime = None
+        self.current_episode = None
 
         self.current_page = 0
         self.local_counts = {}
@@ -421,6 +422,7 @@ class FanCapsApp(ctk.CTk):
 
     def _select_anime(self, anime: Anime):
         self.current_anime = anime
+        self.current_episode = None
 
         self.download_heading.configure(text=anime.title)
 
@@ -503,6 +505,20 @@ class FanCapsApp(ctk.CTk):
                 text_color=color
             ).pack(side="right", padx=12)
 
+            # A análise local não depende da existência de IDs no dataset.
+            ctk.CTkButton(
+                row,
+                text="Analisar local",
+                width=112,
+                command=lambda selected_anime=anime, selected_ep=ep, selected_folder=folder: (
+                    self._open_episode_analysis(
+                        selected_anime,
+                        selected_ep,
+                        selected_folder
+                    )
+                )
+            ).pack(side="right", padx=6, pady=5)
+
             self._schedule_folder_scan(
                 anime,
                 ep,
@@ -510,6 +526,63 @@ class FanCapsApp(ctk.CTk):
                 row,
                 color
             )
+
+    def _open_episode_analysis(self, anime, episode, folder):
+        """
+        Abre a análise usando a pasta local do episódio.
+        Não consulta o dataset por IDs nem acessa o site.
+        """
+        self.tabs.set("Seleção de frames")
+
+        if not folder.is_dir():
+            self.current_anime = anime
+            self.current_episode = episode
+            self.local_folder = None
+            self.analysis_context_label.configure(
+                text=f"Origem: {anime.title} / {episode.title}"
+            )
+            self.folder_label.configure(
+                text=f"Pasta esperada: {folder}",
+                text_color="gray"
+            )
+            self.analysis_status.configure(
+                text="A pasta local deste episódio ainda não foi encontrada."
+            )
+
+            choose = messagebox.askyesno(
+                "Pasta local não encontrada",
+                (
+                    f"Não encontrei a pasta deste episódio:\n{folder}\n\n"
+                    "Deseja escolher outra pasta manualmente?"
+                )
+            )
+            if choose:
+                self._choose_local_folder()
+            return
+
+        self.current_anime = anime
+        self.current_episode = episode
+        self.local_folder = folder
+        self.last_result = None
+        self.results_button.configure(state="disabled")
+        self.progress.set(0)
+
+        self.analysis_context_label.configure(
+            text=f"Origem: {anime.title} / {episode.title}"
+        )
+        self.folder_label.configure(
+            text=f"{folder}\nVerificando imagens...",
+            text_color="white"
+        )
+        self.analysis_status.configure(
+            text="Verificando imagens locais do episódio..."
+        )
+
+        threading.Thread(
+            target=self._folder_info_worker,
+            args=(folder,),
+            daemon=True
+        ).start()
 
     def _schedule_folder_scan(self, anime, episode, folder, row, color):
         def scan():
@@ -577,6 +650,20 @@ class FanCapsApp(ctk.CTk):
             column=0,
             padx=14,
             pady=8,
+            sticky="ew"
+        )
+
+        self.analysis_context_label = ctk.CTkLabel(
+            folder_panel,
+            text="Origem: pasta escolhida manualmente",
+            text_color="gray",
+            anchor="w"
+        )
+        self.analysis_context_label.grid(
+            row=2,
+            column=0,
+            padx=14,
+            pady=(0, 8),
             sticky="ew"
         )
 
@@ -846,6 +933,10 @@ class FanCapsApp(ctk.CTk):
             return
 
         self.local_folder = Path(selected)
+        self.current_episode = None
+        self.analysis_context_label.configure(
+            text="Origem: pasta escolhida manualmente"
+        )
 
         self.folder_label.configure(
             text=f"{self.local_folder}\nVerificando imagens...",
