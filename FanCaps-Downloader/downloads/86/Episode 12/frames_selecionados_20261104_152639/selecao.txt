@@ -1,0 +1,20 @@
+Anime: 86
+Episódio: Episode 12
+Modo: best
+Sensibilidade: 6
+Intervalo: 3
+Imagens originais: 12
+Selecionadas: 11
+Descartadas: 1
+
+17392293.jpg
+17392295.jpg
+17392296.jpg
+17392297.jpg
+17392298.jpg
+17392299.jpg
+17392300.jpg
+17392301.jpg
+17392302.jpg
+17392303.jpg
+17392304.jpg
