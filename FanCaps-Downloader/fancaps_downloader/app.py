@@ -15,6 +15,7 @@ from PIL import Image
 from .catalog import Catalog, CatalogError, Anime
 from .config import DATASET_PATH, DOWNLOAD_DIR, DATABASE_PATH
 from .database import DownloadDatabase
+from .downloader import ImageDownloader, DownloadBlocked
 from .frame_selector import FrameSelector
 
 
@@ -45,6 +46,8 @@ class FanCapsApp(ctk.CTk):
         self.current_page = 0
         self.local_counts = {}
         self.worker = None
+        self.download_worker = None
+        self.download_active = False
 
         self.local_folder = None
         self.events = queue.Queue()
@@ -309,6 +312,30 @@ class FanCapsApp(ctk.CTk):
             sticky="w"
         )
 
+        self.download_status = ctk.CTkLabel(
+            bottom,
+            text="Fila de downloads ociosa",
+            text_color="gray",
+            anchor="w"
+        )
+        self.download_status.grid(
+            row=2,
+            column=0,
+            padx=5,
+            pady=(8, 2),
+            sticky="ew"
+        )
+
+        self.download_progress = ctk.CTkProgressBar(bottom)
+        self.download_progress.set(0)
+        self.download_progress.grid(
+            row=3,
+            column=0,
+            padx=5,
+            pady=(2, 8),
+            sticky="ew"
+        )
+
         self.catalog_status = ctk.CTkLabel(
             tab,
             text="Pronto",
@@ -519,6 +546,29 @@ class FanCapsApp(ctk.CTk):
                 )
             ).pack(side="right", padx=6, pady=5)
 
+            if ep.source == "explicit" and ep.image_ids:
+                download_button = ctk.CTkButton(
+                    row,
+                    text="Baixar",
+                    width=82,
+                    command=lambda selected_anime=anime, selected_ep=ep, selected_folder=folder, selected_row=row: (
+                        self._start_episode_download(
+                            selected_anime,
+                            selected_ep,
+                            selected_folder,
+                            selected_row
+                        )
+                    )
+                )
+                download_button.pack(side="right", padx=6, pady=5)
+            else:
+                ctk.CTkButton(
+                    row,
+                    text="Sem IDs",
+                    width=82,
+                    state="disabled"
+                ).pack(side="right", padx=6, pady=5)
+
             self._schedule_folder_scan(
                 anime,
                 ep,
@@ -526,6 +576,123 @@ class FanCapsApp(ctk.CTk):
                 row,
                 color
             )
+
+    def _start_episode_download(self, anime, episode, folder, row):
+        if self.download_active:
+            messagebox.showinfo(
+                "Download em andamento",
+                "Aguarde a fila atual terminar antes de iniciar outra."
+            )
+            return
+
+        if episode.source != "explicit" or not episode.image_ids:
+            messagebox.showwarning(
+                "IDs indisponíveis",
+                "Este episódio não possui IDs individuais confirmados no dataset."
+            )
+            return
+
+        if not messagebox.askyesno(
+            "Confirmar download",
+            (
+                f"Baixar {len(episode.image_ids)} imagens de "
+                f"{anime.title} / {episode.title}?\n\n"
+                "Os downloads serão sequenciais. Se o servidor bloquear "
+                "as requisições, a fila será interrompida."
+            )
+        ):
+            return
+
+        self.download_active = True
+        self.download_progress.set(0)
+        self.download_status.configure(
+            text=f"Iniciando: {anime.title} / {episode.title}"
+        )
+
+        for child in row.winfo_children():
+            if isinstance(child, ctk.CTkButton) and child.cget("text") == "Baixar":
+                child.configure(state="disabled")
+
+        self.download_worker = threading.Thread(
+            target=self._episode_download_worker,
+            args=(anime, episode, folder, row),
+            daemon=True
+        )
+        self.download_worker.start()
+
+    def _episode_download_worker(self, anime, episode, folder, row):
+        downloader = ImageDownloader(self.database)
+        total = len(episode.image_ids)
+        downloaded = 0
+        skipped = 0
+        errors = 0
+
+        try:
+            folder.mkdir(parents=True, exist_ok=True)
+
+            for index, image_id in enumerate(episode.image_ids, start=1):
+                destination = folder / f"{image_id}.jpg"
+
+                result = downloader.download_one(
+                    image_id=image_id,
+                    anime_id=anime.id,
+                    episode_number=episode.number,
+                    destination=destination
+                )
+
+                if result.status == "downloaded":
+                    downloaded += 1
+                elif result.status == "skipped":
+                    skipped += 1
+                else:
+                    errors += 1
+
+                self.events.put((
+                    "download_progress",
+                    index,
+                    total,
+                    downloaded,
+                    skipped,
+                    errors,
+                    anime.title,
+                    episode.title
+                ))
+
+        except DownloadBlocked as exc:
+            self.events.put((
+                "download_blocked",
+                str(exc),
+                downloaded,
+                skipped,
+                errors,
+                anime,
+                episode,
+                row
+            ))
+            return
+
+        except Exception as exc:
+            self.events.put((
+                "download_error",
+                str(exc),
+                downloaded,
+                skipped,
+                errors,
+                anime,
+                episode,
+                row
+            ))
+            return
+
+        self.events.put((
+            "download_finished",
+            downloaded,
+            skipped,
+            errors,
+            anime,
+            episode,
+            row
+        ))
 
     def _open_episode_analysis(self, anime, episode, folder):
         """
@@ -1230,6 +1397,88 @@ class FanCapsApp(ctk.CTk):
                             text="Pasta carregada. Pronta para análise."
                         )
 
+                elif kind == "download_progress":
+                    (
+                        _, current, total, downloaded, skipped, errors,
+                        anime_title, episode_title
+                    ) = event
+                    self.download_progress.set(current / max(1, total))
+                    self.download_status.configure(
+                        text=(
+                            f"{anime_title} / {episode_title}: "
+                            f"{current}/{total} • "
+                            f"{downloaded} baixadas • {skipped} existentes "
+                            f"• {errors} erros"
+                        )
+                    )
+
+                elif kind == "download_finished":
+                    (
+                        _, downloaded, skipped, errors,
+                        anime, episode, row
+                    ) = event
+                    self.download_active = False
+                    self.download_progress.set(1)
+                    self.download_status.configure(
+                        text=(
+                            f"Concluído: {downloaded} baixadas, "
+                            f"{skipped} já existentes e {errors} erros."
+                        )
+                    )
+                    self._refresh_episode_download_button(row)
+                    self.local_counts.pop((anime.id, episode.number), None)
+                    if self.current_anime and self.current_anime.id == anime.id:
+                        self._select_anime(anime)
+                    messagebox.showinfo(
+                        "Download concluído",
+                        (
+                            f"Baixadas: {downloaded}\n"
+                            f"Já existentes: {skipped}\n"
+                            f"Erros: {errors}"
+                        )
+                    )
+
+                elif kind == "download_blocked":
+                    (
+                        _, reason, downloaded, skipped, errors,
+                        anime, episode, row
+                    ) = event
+                    self.download_active = False
+                    self.download_status.configure(
+                        text="Fila interrompida: servidor bloqueou as requisições."
+                    )
+                    self._refresh_episode_download_button(row)
+                    messagebox.showwarning(
+                        "Download interrompido",
+                        (
+                            f"{reason}\n\n"
+                            f"Baixadas antes do bloqueio: {downloaded}\n"
+                            f"Já existentes: {skipped}\n"
+                            f"Erros: {errors}\n\n"
+                            "Não tente novamente enquanto o bloqueio estiver ativo."
+                        )
+                    )
+
+                elif kind == "download_error":
+                    (
+                        _, error, downloaded, skipped, errors,
+                        anime, episode, row
+                    ) = event
+                    self.download_active = False
+                    self.download_status.configure(
+                        text="Fila encerrada com erro."
+                    )
+                    self._refresh_episode_download_button(row)
+                    messagebox.showerror(
+                        "Erro no download",
+                        (
+                            f"{error}\n\n"
+                            f"Baixadas: {downloaded}\n"
+                            f"Já existentes: {skipped}\n"
+                            f"Erros: {errors}"
+                        )
+                    )
+
                 elif kind == "analysis_progress":
                     self.progress.set(event[1])
 
@@ -1283,6 +1532,16 @@ class FanCapsApp(ctk.CTk):
             pass
 
         self.after(150, self._process_events)
+
+    def _refresh_episode_download_button(self, row):
+        try:
+            if not row.winfo_exists():
+                return
+            for child in row.winfo_children():
+                if isinstance(child, ctk.CTkButton) and child.cget("text") == "Baixar":
+                    child.configure(state="normal")
+        except Exception:
+            pass
 
     # =========================================================
     # UTILITÁRIOS
