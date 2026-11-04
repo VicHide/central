@@ -1,0 +1,5 @@
+[
+  { "numero": 1, "anime": "Anime Exemplo A", "imagens": [null, null, null, null] },
+  { "numero": 2, "anime": "Anime Exemplo B", "imagens": [null, null, null, null] },
+  { "numero": 3, "anime": "Anime Exemplo C", "imagens": [null, null, null, null] }
+]

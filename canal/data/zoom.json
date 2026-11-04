@@ -1,0 +1,4 @@
+[
+  { "numero": 1, "anime": "Anime Exemplo A", "imagem": null, "cortes": [ { "x": 20, "y": 25, "zoom": 3.5 } ] },
+  { "numero": 2, "anime": "Anime Exemplo B", "imagem": null, "cortes": [ { "x": 75, "y": 30, "zoom": 3.5 } ] }
+]

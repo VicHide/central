@@ -1,0 +1,247 @@
+"use client";
+import React, { useEffect, useState } from "react";
+import { estimaDuracao, estimaDuracaoTop } from "@/config";
+import { GENEROS, TEMPORADAS, ORDENS } from "@/core/generos";
+
+type Meta = { n: number; render: boolean; duracaoSeg: number; resumo: string; preparo: string };
+type Job = { id: string; titulo: string; status: "rodando" | "ok" | "erro"; inicio: number; fim?: number; log: string[]; etapa?: string; pct?: number; eta?: number; detalhe?: string; meta?: Meta };
+type Acervo = { animes: { pasta: string; imagens: number; usadas: number }[]; promos: number };
+type Saida = { nome: string; kb: number; data: number };
+type Estado = { animes: number; promos: number; navegador: boolean };
+
+const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
+const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s) % 60).padStart(2, "0")}`;
+const tempo = (s: number) => (s >= 60 ? `${Math.floor(s / 60)} min ${s % 60} s` : `${s} s`);
+const segs = (j: Job) => Math.round(((j.fim ?? Date.now()) - j.inicio) / 1000);
+const ROTULO = { rodando: "Em andamento", ok: "Concluído", erro: "Com erro" } as const;
+
+// Converte a porcentagem geral do job nas etapas de produção.
+function etapas(j: Job) {
+  const r = j.meta?.render ?? false;
+  const p = j.pct ?? 0;
+  const ativa = j.status === "ok" ? 99 : !r || p < 10 ? 0 : p < 20 ? 1 : 2;
+  const local = [r ? p * 10 : p, (p - 10) * 10, ((p - 20) / 80) * 100].map((v) => Math.max(0, Math.min(100, Math.round(v))));
+  const base = [
+    { nome: "Preparação", dono: j.meta?.preparo ?? "Sorteio, imagens e cortes" },
+    { nome: "Empacotamento", dono: "Remotion · webpack" },
+    { nome: "Renderização", dono: "Remotion · navegador interno" },
+  ];
+  return base.slice(0, r ? 3 : 1).map((e, i) => {
+    const feito = ativa > i;
+    const atual = ativa === i;
+    const pct = feito ? 100 : atual ? local[i] : null;
+    const detalhe = feito ? "Concluído" : atual
+      ? [j.status === "erro" ? "Interrompido nesta etapa" : j.detalhe ?? j.etapa, i === 2 && j.status === "rodando" && j.eta !== undefined ? `faltam ~${tempo(j.eta)}` : ""].filter(Boolean).join(" · ")
+      : "Aguardando";
+    return { ...e, pct, detalhe };
+  });
+}
+
+export default function Page() {
+  const [modo, setModo] = useState<"zoom" | "quatro">("zoom");
+  const [n, setN] = useState(10);
+  const [cortes, setCortes] = useState(1);
+  const [seed, setSeed] = useState("");
+  const [render, setRender] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [tGenero, setTGenero] = useState("");
+  const [tOrdem, setTOrdem] = useState("score");
+  const [tTemporada, setTTemporada] = useState("");
+  const [tAno, setTAno] = useState(String(new Date().getFullYear()));
+  const [tN, setTN] = useState(10);
+  const [tRender, setTRender] = useState(false);
+  const [tMsg, setTMsg] = useState("");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [acervo, setAcervo] = useState<Acervo>({ animes: [], promos: 0 });
+  const [saidas, setSaidas] = useState<Saida[]>([]);
+  const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false });
+
+  const carrega = async () => {
+    try {
+      const [j, a, s, e] = await Promise.all([buscar<Job[]>("/api/jobs"), buscar<Acervo>("/api/acervo"), buscar<Saida[]>("/api/saidas"), buscar<Estado>("/api/status")]);
+      setJobs(j); setAcervo(a); setSaidas(s); setEstado(e);
+    } catch { /* servidor reiniciando */ }
+  };
+  useEffect(() => { carrega(); const t = setInterval(carrega, 3000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const j = jobs.find((x) => x.status === "rodando");
+    document.title = j ? `${j.pct ?? 0}% · Central do Canal` : "Central do Canal";
+  }, [jobs]);
+
+  const gerar = async () => {
+    setMsg("");
+    const r = await fetch("/api/gerar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo, n, cortes, seed: seed ? Number(seed) : undefined, render }) });
+    const d = await r.json();
+    setMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
+    carrega();
+  };
+  const gerarTop = async () => {
+    setTMsg("");
+    const r = await fetch("/api/top", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genero: tGenero || undefined, ordem: tOrdem, temporada: tTemporada || undefined, ano: tAno ? Number(tAno) : undefined, n: tN, render: tRender }) });
+    const d = await r.json();
+    setTMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
+    carrega();
+  };
+  const studio = async () => {
+    const d = await (await fetch("/api/studio", { method: "POST" })).json();
+    setTimeout(() => window.open(d.url, "_blank"), 2500);
+  };
+
+  const rodando = jobs.some((j) => j.status === "rodando");
+  const falta = estado.animes < n;
+  const duracao = estimaDuracao(modo, n, cortes);
+
+  return (
+    <>
+      <aside className="sidebar" aria-label="Navegação">
+        <a className="brand" href="#novo"><span className="mark" aria-hidden="true">Q</span><span><strong>Central do Canal</strong><small>Estúdio de quiz</small></span></a>
+        <nav>
+          <a className="nav-link active" href="#novo">Novo vídeo</a>
+          <a className="nav-link" href="#top">Top 10 (Short)</a>
+          <a className="nav-link" href="#projetos">Projetos</a>
+          <a className="nav-link" href="#acervo">Acervo</a>
+          <a className="nav-link" href="#saidas">Saídas</a>
+        </nav>
+        <div className="sidebar-note"><span className="note-mark" aria-hidden="true" /><p>Um zoom.<br />Uma revelação.</p></div>
+      </aside>
+
+      <main className="main">
+        <header className="topbar">
+          <div className="crumb">Central do Canal <span>/</span> Produção</div>
+          <div className={`top-status ${estado.animes > 0 ? "ready" : "warn"}`} aria-live="polite">
+            {estado.animes > 0 ? `Acervo pronto · ${estado.animes} animes · ${estado.promos} promos` : "Acervo vazio: adicione pastas em acervo/"}
+            {" · "}{estado.navegador ? "navegador do Remotion instalado" : "navegador baixa no 1º render"}
+          </div>
+        </header>
+
+        <section className="workspace">
+          <div className="intro-row" id="novo">
+            <div>
+              <h1>Do acervo ao vídeo.</h1>
+              <p>As pastas viram perguntas, a abertura entra sozinha e o vídeo sai pronto para conferir.</p>
+            </div>
+            <div className="duration-mark"><span>Duração estimada</span><b>{mmss(duracao)}</b></div>
+          </div>
+
+          <div className="work-grid">
+            <section className="composer">
+              <div className="section-head"><div><h2>Novo vídeo</h2><p>Escolha o formato e quantos animes entram. O sorteio prefere o que foi menos usado.</p></div><span className="step-label">Quiz de anime</span></div>
+              <div className="form-body" style={{ marginTop: 24 }}>
+                <div className="fields">
+                  <label>Formato
+                    <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro")}>
+                      <option value="zoom">Zoom e revelação</option>
+                      <option value="quatro">4 imagens com dicas</option>
+                    </select>
+                  </label>
+                  <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
+                  {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
+                  <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
+                </div>
+                <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
+                <div className="form-footer">
+                  <p className="helper">Sem renderizar, o painel só prepara os dados e as imagens. Dá para conferir no Remotion Studio antes.</p>
+                  <div className="actions">
+                    <button className="secondary" onClick={studio}>Abrir Remotion Studio</button>
+                    <button className="primary" onClick={gerar} disabled={rodando}>{rodando ? "Aguarde…" : "Gerar projeto"}</button>
+                  </div>
+                </div>
+                {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
+                {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
+              </div>
+            </section>
+
+            <aside className="pipeline-panel">
+              <div className="section-head"><div><h2>O que acontece</h2><p>Tudo roda no seu computador.</p></div></div>
+              <ul className="pipeline-list">
+                <li><span className="pipeline-dot" /><div><strong>Sorteio no acervo</strong><small>Menos usados primeiro, com seed reproduzível</small></div></li>
+                <li><span className="pipeline-dot" /><div><strong>Imagens padronizadas</strong><small>1080p; pontos de zoom nas áreas com mais detalhe</small></div></li>
+                <li><span className="pipeline-dot" /><div><strong>Abertura em cinco idiomas</strong><small>{estado.promos > 0 ? `${estado.promos} promos em promos/` : "Placeholders: coloque imagens em promos/"}</small></div></li>
+                <li><span className="pipeline-dot" /><div><strong>Renderização</strong><small>Remotion · vídeo longo 1920×1080</small></div></li>
+                <li><span className="pipeline-dot" /><div><strong>Título e capítulos</strong><small>Texto em out/, sem spoiler</small></div></li>
+              </ul>
+              <div className="pipeline-foot"><span className="signal" aria-hidden="true" />Nada é publicado automaticamente.</div>
+            </aside>
+          </div>
+
+          <section className="composer" id="top" style={{ marginTop: 14 }}>
+            <div className="section-head"><div><h2>Top 10 para Shorts</h2><p>Ranking do AniList por gênero, temporada ou popularidade, com capas oficiais e contagem regressiva.</p></div><span className="step-label">AniList</span></div>
+            <div className="form-body" style={{ marginTop: 24 }}>
+              <div className="fields">
+                <label>Critério
+                  <select value={tOrdem} onChange={(e) => setTOrdem(e.target.value)}>{ORDENS.map((o) => <option key={o.id} value={o.id}>{o.pt}</option>)}</select>
+                </label>
+                <label>Gênero
+                  <select value={tGenero} onChange={(e) => setTGenero(e.target.value)}><option value="">Todos</option>{GENEROS.map((g) => <option key={g.slug} value={g.slug}>{g.pt}</option>)}</select>
+                </label>
+                <label>Temporada
+                  <select value={tTemporada} onChange={(e) => setTTemporada(e.target.value)}><option value="">Qualquer</option>{TEMPORADAS.map((s) => <option key={s.id} value={s.id}>{s.pt}</option>)}</select>
+                </label>
+                <label>Ano<input type="number" min={1980} max={2100} value={tAno} onChange={(e) => setTAno(e.target.value)} placeholder="qualquer" /></label>
+                <label>Quantidade<input type="number" min={3} max={10} value={tN} onChange={(e) => setTN(Number(e.target.value))} /></label>
+              </div>
+              <label className="check"><input type="checkbox" checked={tRender} onChange={(e) => setTRender(e.target.checked)} /> Renderizar o Short ao terminar</label>
+              <div className="form-footer">
+                <p className="helper">Duração estimada: {mmss(estimaDuracaoTop(tN))}. Sem temporada, o ano filtra só pelo ano de estreia. Nada é publicado sozinho.</p>
+                <div className="actions"><button className="primary" onClick={gerarTop} disabled={rodando}>{rodando ? "Aguarde…" : "Gerar Top"}</button></div>
+              </div>
+              {tMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{tMsg}</p>}
+            </div>
+          </section>
+
+          <section className="jobs-section" id="projetos">
+            <div className="jobs-heading"><div><h2>Projetos</h2><p>Progresso do que está sendo gerado, atualizado a cada 3 segundos.</p></div><span className="job-count">{jobs.length} {jobs.length === 1 ? "tarefa" : "tarefas"}</span></div>
+            <div className="jobs-list">
+              {jobs.length === 0 && <p className="empty-state">Nenhuma tarefa ainda. Gere o primeiro projeto acima.</p>}
+              {jobs.map((j, i) => (
+                <div className="job" key={j.id}>
+                  <div className="job-row">
+                    <div>
+                      <div className="job-topic">{j.titulo}</div>
+                      {j.meta && <div className="job-meta">{j.meta.resumo} · ~{mmss(j.meta.duracaoSeg)} de vídeo{j.meta.render ? " · com render" : ""}</div>}
+                    </div>
+                    <div className="job-stage">{j.etapa ?? "Iniciando"}{j.pct !== undefined ? ` · ${j.pct}%` : ""}</div>
+                    <div className="job-state"><span className={`state-dot ${j.status}`} />{ROTULO[j.status]} · {segs(j)} s</div>
+                  </div>
+                  <div className="production-stages">
+                    {etapas(j).map((e) => (
+                      <section className="production-stage" key={e.nome}>
+                        <div className="stage-heading"><h3>{e.nome}</h3><span className="stage-percent">{e.pct === null ? "Aguardando" : `${e.pct}%`}</span></div>
+                        <p className="stage-owner">{e.dono}</p>
+                        <progress max={100} value={e.pct ?? 0} aria-label={e.nome} />
+                        <p className="stage-detail">{e.detalhe}</p>
+                      </section>
+                    ))}
+                  </div>
+                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("\n")}</pre></details>}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="jobs-section" id="acervo">
+            <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
+            {acervo.animes.length > 0 && (
+              <table>
+                <thead><tr><th>Pasta</th><th>Imagens</th><th>Já usadas</th></tr></thead>
+                <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
+              </table>
+            )}
+          </section>
+
+          <section className="jobs-section" id="saidas">
+            <div className="jobs-heading"><div><h2>Saídas</h2><p>Vídeos e textos de publicação em out/.</p></div></div>
+            <div className="jobs-list">
+              {saidas.length === 0 && <p className="empty-state">Nada em out/ ainda.</p>}
+              {saidas.map((s) => (
+                <div className="job" key={s.nome}><div className="job-row"><a className="link" href={`/api/saidas/${encodeURIComponent(s.nome)}`} target="_blank" rel="noreferrer">{s.nome}</a><span className="job-meta">{s.kb} KB</span><span className="job-state">{new Date(s.data).toLocaleString("pt-BR")}</span></div></div>
+              ))}
+            </div>
+          </section>
+
+          <footer className="footer"><span>Central do Canal</span><span>Roda só neste computador · nada é publicado automaticamente</span></footer>
+        </section>
+      </main>
+    </>
+  );
+}

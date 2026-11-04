@@ -1,0 +1,33 @@
+{
+  "name": "canal",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio src/video/index.ts",
+    "render": "remotion render src/video/index.ts QuizLongo out/quiz.mp4",
+    "render:short": "remotion render src/video/index.ts QuizShort out/short.mp4",
+    "render:zoom": "remotion render src/video/index.ts ZoomLongo out/zoom.mp4",
+    "render:zoom-short": "remotion render src/video/index.ts ZoomShort out/zoom-short.mp4",
+    "gerar": "tsx src/core/gerar.ts",
+    "painel": "next dev -H 127.0.0.1 -p 3000",
+    "painel:build": "next build && next start -H 127.0.0.1 -p 3000",
+    "top": "tsx src/core/top.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.540",
+    "@remotion/cli": "4.0.540",
+    "@remotion/google-fonts": "4.0.540",
+    "@remotion/renderer": "4.0.540",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.540",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^18.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.4.0"
+  }
+}
