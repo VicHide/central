@@ -96,3 +96,15 @@ export async function callFanCapsApi(pathname: string, method: "GET" | "POST", b
   const data = await response.json().catch(() => ({ erro: "Resposta inválida da API Python." }));
   return Response.json(data, { status: response.status });
 }
+
+export async function readFanCapsQueueIfRunning() {
+  const health = await readHealth();
+  if (!health) return null;
+  validateHealth(health);
+  const response = await fetch(apiBase + "/queue", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(1500),
+  });
+  if (!response.ok) return null;
+  return await response.json();
+}
