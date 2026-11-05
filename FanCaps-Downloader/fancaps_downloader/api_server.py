@@ -134,6 +134,8 @@ class QueueService:
                 "totals": totals,
                 "last_error": self.last_error,
                 "last_summary": self.last_summary,
+                "project_root": str(Path(__file__).resolve().parents[1]),
+                "download_dir": str(DOWNLOAD_DIR.resolve()),
             }
 
     def start(self):
