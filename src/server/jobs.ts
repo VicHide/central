@@ -60,6 +60,8 @@ type FanCapsQueueSnapshot = {
   totals: { episodes: number; images: number; downloaded: number; skipped: number; errors: number; processed: number };
   last_error?: string | null;
   last_summary?: { result: string } | null;
+  project_root?: string;
+  download_dir?: string;
 };
 
 const runtime = g as typeof g & { __fanCapsJobId?: string; __fanCapsLastProgress?: string; __fanCapsWasActive?: boolean };
@@ -75,7 +77,11 @@ export function syncFanCapsJob(queue: FanCapsQueueSnapshot) {
       titulo: "FanCaps Downloader",
       status: "rodando",
       inicio: Date.now(),
-      log: ["Fila de downloads iniciada."],
+      log: [
+        "Fila de downloads iniciada.",
+        ...(queue.project_root ? [`Projeto Python: ${queue.project_root}`] : []),
+        ...(queue.download_dir ? [`Destino das imagens: ${queue.download_dir}`] : []),
+      ],
     };
     jobs.push(job);
     runtime.__fanCapsJobId = job.id;
