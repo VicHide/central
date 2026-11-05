@@ -3,6 +3,7 @@ import os
 import queue
 import shutil
 import threading
+import time
 
 from datetime import datetime
 from pathlib import Path
@@ -48,6 +49,8 @@ class FanCapsApp(ctk.CTk):
         self.worker = None
         self.download_worker = None
         self.download_active = False
+        self.download_queue = []
+        self.download_queue_keys = set()
 
         self.local_folder = None
         self.events = queue.Queue()
@@ -139,7 +142,23 @@ class FanCapsApp(ctk.CTk):
             text="Atualizar catálogo",
             command=self._load_catalog,
             width=150
-        ).grid(row=0, column=1, padx=10, pady=10)
+        ).grid(row=0, column=1, padx=6, pady=10)
+
+        self.queue_start_button = ctk.CTkButton(
+            toolbar,
+            text="Iniciar fila (0)",
+            command=self._start_download_queue,
+            width=130
+        )
+        self.queue_start_button.grid(row=0, column=2, padx=6, pady=10)
+
+        self.queue_clear_button = ctk.CTkButton(
+            toolbar,
+            text="Limpar fila",
+            command=self._clear_download_queue,
+            width=100
+        )
+        self.queue_clear_button.grid(row=0, column=3, padx=6, pady=10)
 
         content = ctk.CTkFrame(tab, fg_color="transparent")
         content.grid(
@@ -547,12 +566,15 @@ class FanCapsApp(ctk.CTk):
             ).pack(side="right", padx=6, pady=5)
 
             if ep.source == "explicit" and ep.image_ids:
-                download_button = ctk.CTkButton(
+                queue_key = (anime.id, ep.number)
+                already_queued = queue_key in self.download_queue_keys
+                queue_button = ctk.CTkButton(
                     row,
-                    text="Baixar",
-                    width=82,
+                    text="Na fila" if already_queued else "Adicionar",
+                    width=92,
+                    state="disabled" if already_queued else "normal",
                     command=lambda selected_anime=anime, selected_ep=ep, selected_folder=folder, selected_row=row: (
-                        self._start_episode_download(
+                        self._add_episode_to_queue(
                             selected_anime,
                             selected_ep,
                             selected_folder,
@@ -560,12 +582,12 @@ class FanCapsApp(ctk.CTk):
                         )
                     )
                 )
-                download_button.pack(side="right", padx=6, pady=5)
+                queue_button.pack(side="right", padx=6, pady=5)
             else:
                 ctk.CTkButton(
                     row,
                     text="Sem IDs",
-                    width=82,
+                    width=92,
                     state="disabled"
                 ).pack(side="right", padx=6, pady=5)
 
@@ -577,122 +599,168 @@ class FanCapsApp(ctk.CTk):
                 color
             )
 
-    def _start_episode_download(self, anime, episode, folder, row):
+    def _add_episode_to_queue(self, anime, episode, folder, row):
         if self.download_active:
             messagebox.showinfo(
-                "Download em andamento",
-                "Aguarde a fila atual terminar antes de iniciar outra."
+                "Fila em andamento",
+                "Não é possível alterar a fila durante o processamento."
             )
             return
 
         if episode.source != "explicit" or not episode.image_ids:
-            messagebox.showwarning(
-                "IDs indisponíveis",
-                "Este episódio não possui IDs individuais confirmados no dataset."
-            )
             return
 
+        key = (anime.id, episode.number)
+        if key in self.download_queue_keys:
+            return
+
+        self.download_queue.append((anime, episode, folder))
+        self.download_queue_keys.add(key)
+
+        for child in row.winfo_children():
+            if isinstance(child, ctk.CTkButton) and child.cget("text") == "Adicionar":
+                child.configure(text="Na fila", state="disabled")
+
+        self._update_queue_controls()
+
+    def _update_queue_controls(self):
+        episode_count = len(self.download_queue)
+        image_count = sum(len(item[1].image_ids) for item in self.download_queue)
+
+        self.queue_start_button.configure(
+            text=f"Iniciar fila ({episode_count})",
+            state="normal" if episode_count and not self.download_active else "disabled"
+        )
+        self.queue_clear_button.configure(
+            state="normal" if episode_count and not self.download_active else "disabled"
+        )
+
+        if not self.download_active:
+            self.download_status.configure(
+                text=(
+                    f"Fila: {episode_count} episódios • "
+                    f"{image_count} imagens confirmadas"
+                    if episode_count else "Fila de downloads vazia"
+                )
+            )
+
+    def _clear_download_queue(self):
+        if self.download_active:
+            return
+
+        self.download_queue.clear()
+        self.download_queue_keys.clear()
+
+        if self.current_anime:
+            self._select_anime(self.current_anime)
+        self._update_queue_controls()
+
+    def _start_download_queue(self):
+        if self.download_active or not self.download_queue:
+            return
+
+        episode_count = len(self.download_queue)
+        image_count = sum(len(item[1].image_ids) for item in self.download_queue)
+
         if not messagebox.askyesno(
-            "Confirmar download",
+            "Iniciar fila",
             (
-                f"Baixar {len(episode.image_ids)} imagens de "
-                f"{anime.title} / {episode.title}?\n\n"
-                "Os downloads serão sequenciais. Se o servidor bloquear "
-                "as requisições, a fila será interrompida."
+                f"Iniciar download de {episode_count} episódios "
+                f"({image_count} imagens)?\n\n"
+                "As imagens serão solicitadas uma por vez, com intervalo "
+                "entre requisições. Se houver HTTP 403/429 ou bloqueio "
+                "Cloudflare, toda a fila será interrompida."
             )
         ):
             return
 
+        queue_snapshot = list(self.download_queue)
         self.download_active = True
+        self.queue_start_button.configure(state="disabled")
+        self.queue_clear_button.configure(state="disabled")
         self.download_progress.set(0)
-        self.download_status.configure(
-            text=f"Iniciando: {anime.title} / {episode.title}"
-        )
-
-        for child in row.winfo_children():
-            if isinstance(child, ctk.CTkButton) and child.cget("text") == "Baixar":
-                child.configure(state="disabled")
+        self.download_status.configure(text="Preparando fila...")
 
         self.download_worker = threading.Thread(
-            target=self._episode_download_worker,
-            args=(anime, episode, folder, row),
+            target=self._download_queue_worker,
+            args=(queue_snapshot,),
             daemon=True
         )
         self.download_worker.start()
 
-    def _episode_download_worker(self, anime, episode, folder, row):
+    def _download_queue_worker(self, episodes):
         downloader = ImageDownloader(self.database)
-        total = len(episode.image_ids)
+        total_images = sum(len(episode.image_ids) for _, episode, _ in episodes)
+        processed = 0
         downloaded = 0
         skipped = 0
         errors = 0
 
         try:
-            folder.mkdir(parents=True, exist_ok=True)
+            for episode_index, (anime, episode, folder) in enumerate(episodes, start=1):
+                folder.mkdir(parents=True, exist_ok=True)
 
-            for index, image_id in enumerate(episode.image_ids, start=1):
-                destination = folder / f"{image_id}.jpg"
+                for image_id in episode.image_ids:
+                    destination = folder / f"{image_id}.jpg"
+                    result = downloader.download_one(
+                        image_id=image_id,
+                        anime_id=anime.id,
+                        episode_number=episode.number,
+                        destination=destination
+                    )
 
-                result = downloader.download_one(
-                    image_id=image_id,
-                    anime_id=anime.id,
-                    episode_number=episode.number,
-                    destination=destination
-                )
+                    if result.status == "downloaded":
+                        downloaded += 1
+                    elif result.status == "skipped":
+                        skipped += 1
+                    else:
+                        errors += 1
 
-                if result.status == "downloaded":
-                    downloaded += 1
-                elif result.status == "skipped":
-                    skipped += 1
-                else:
-                    errors += 1
+                    processed += 1
+                    self.events.put((
+                        "queue_progress",
+                        processed,
+                        total_images,
+                        episode_index,
+                        len(episodes),
+                        anime.title,
+                        episode.title,
+                        downloaded,
+                        skipped,
+                        errors
+                    ))
 
-                self.events.put((
-                    "download_progress",
-                    index,
-                    total,
-                    downloaded,
-                    skipped,
-                    errors,
-                    anime.title,
-                    episode.title
-                ))
+                    # Pausa conservadora entre requisições; não tenta contornar bloqueios.
+                    if processed < total_images:
+                        time.sleep(1.5)
+
+            self.events.put((
+                "queue_finished",
+                downloaded,
+                skipped,
+                errors,
+                episodes
+            ))
 
         except DownloadBlocked as exc:
             self.events.put((
-                "download_blocked",
+                "queue_blocked",
                 str(exc),
                 downloaded,
                 skipped,
                 errors,
-                anime,
-                episode,
-                row
+                episodes
             ))
-            return
 
         except Exception as exc:
             self.events.put((
-                "download_error",
+                "queue_error",
                 str(exc),
                 downloaded,
                 skipped,
                 errors,
-                anime,
-                episode,
-                row
+                episodes
             ))
-            return
-
-        self.events.put((
-            "download_finished",
-            downloaded,
-            skipped,
-            errors,
-            anime,
-            episode,
-            row
-        ))
 
     def _open_episode_analysis(self, anime, episode, folder):
         """
