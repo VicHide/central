@@ -73,8 +73,16 @@ export default function FanCapsPage() {
     <main className={styles.page}>
       <aside className={styles.sidebar}>
         <Link href="/" className={styles.brand}><span className={styles.mark}>C</span><span><strong>Central do Canal</strong><small>Estúdio de quiz</small></span></Link>
-        <nav><Link href="/">Visão geral</Link><Link href="/picker">Seletor de imagens</Link><span className={styles.active}>FanCaps Downloader</span></nav>
-        <div className={styles.sidebarNote}>Catálogo, capturas e fila em um só lugar.</div>
+        <nav>
+          <Link href="/#novo">Novo vídeo</Link>
+          <Link href="/#top">Top 10 (Short)</Link>
+          <Link href="/#projetos">Projetos</Link>
+          <Link href="/#acervo">Acervo</Link>
+          <Link href="/#saidas">Saídas</Link>
+          <span className={styles.active}>FanCaps Downloader</span>
+          <Link href="/picker">Seletor de imagens</Link>
+        </nav>
+        <div className={styles.sidebarNote}>Produção, acervo e ferramentas em um só lugar.</div>
       </aside>
 
       <section className={styles.main}>
