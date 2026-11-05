@@ -108,7 +108,7 @@ export default function FanCapsPage() {
               <div className={styles.controls}>
                 {!queue?.active ? <button className={styles.primary} disabled={busy || !queue?.items.some((x) => x.status === "waiting")} onClick={() => action("start")}>Iniciar fila</button> :
                   <button className={styles.primary} disabled={busy} onClick={() => action(queue.paused ? "resume" : "pause")}>{queue.paused ? "Retomar" : "Pausar"}</button>}
-                <button className={styles.secondary} disabled={busy || !!queue?.active || !queue?.items.length} onClick={() => action("clear")}>Limpar fila</button>
+                <button className={styles.secondary} disabled={busy || (queue?.active === true && !queue.paused) || !queue?.items.length} onClick={() => action("clear")}>Limpar fila</button>
               </div>
             </div>
             <div className={styles.progressTrack}><span style={{ width: percent + "%" }} /></div>

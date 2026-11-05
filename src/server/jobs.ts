@@ -50,3 +50,92 @@ export function iniciaStudio() {
     cwd: process.cwd(), stdio: "ignore", shell: process.platform === "win32",
   });
 }
+
+
+type FanCapsQueueSnapshot = {
+  active: boolean;
+  paused: boolean;
+  state: string;
+  items: { anime_title: string; episode_title: string; processed: number; image_count: number; downloaded: number; skipped: number; errors: number; status: string; current_image_id: number | null }[];
+  totals: { episodes: number; images: number; downloaded: number; skipped: number; errors: number; processed: number };
+  last_error?: string | null;
+  last_summary?: { result: string } | null;
+  project_root?: string;
+  download_dir?: string;
+};
+
+const runtime = g as typeof g & { __fanCapsJobId?: string; __fanCapsLastProgress?: string; __fanCapsWasActive?: boolean };
+
+export function syncFanCapsJob(queue: FanCapsQueueSnapshot) {
+  let job = runtime.__fanCapsJobId ? jobs.find((item) => item.id === runtime.__fanCapsJobId) : undefined;
+
+  // Se a fila foi limpa, encerra o registro que ainda estiver aberto no painel.
+  if (queue.items.length === 0) {
+    if (job?.status === "rodando") {
+      job.status = "ok";
+      job.fim = Date.now();
+      job.etapa = "Fila limpa";
+      job.detalhe = "A fila foi removida.";
+      job.log.push("Fila removida pelo usuário.");
+      runtime.__fanCapsJobId = undefined;
+      runtime.__fanCapsLastProgress = "";
+      runtime.__fanCapsWasActive = false;
+    }
+    return;
+  }
+  if (queue.active && (!job || job.status !== "rodando" || !runtime.__fanCapsWasActive)) {
+    job = {
+      id: `fancaps-${Date.now().toString(36)}`,
+      titulo: "FanCaps Downloader",
+      status: "rodando",
+      inicio: Date.now(),
+      log: [
+        "Fila de downloads iniciada.",
+        ...(queue.project_root ? [`Projeto Python: ${queue.project_root}`] : []),
+        ...(queue.download_dir ? [`Destino das imagens: ${queue.download_dir}`] : []),
+      ],
+    };
+    jobs.push(job);
+    runtime.__fanCapsJobId = job.id;
+    runtime.__fanCapsLastProgress = "";
+  }
+  runtime.__fanCapsWasActive = queue.active;
+
+  if (!job) return;
+  const pct = queue.totals.images > 0
+    ? Math.min(100, Math.round((queue.totals.processed / queue.totals.images) * 100))
+    : 0;
+  job.pct = pct;
+  job.etapa = queue.paused ? "Downloads pausados" : queue.active ? "Baixando imagens" : "Fila de downloads";
+  job.detalhe = `${queue.totals.processed}/${queue.totals.images} imagens processadas`;
+  const current = queue.items.find((item) => item.status === "running");
+  if (current) {
+    job.detalhe = `${current.anime_title} · ${current.episode_title}${current.current_image_id ? ` · imagem ${current.current_image_id}` : ""}`;
+  }
+
+  const progressKey = [
+    queue.state, queue.totals.processed, queue.totals.downloaded,
+    queue.totals.skipped, queue.totals.errors, queue.last_error ?? "",
+  ].join("|");
+  if (progressKey !== runtime.__fanCapsLastProgress) {
+    runtime.__fanCapsLastProgress = progressKey;
+    if (queue.totals.processed > 0) {
+      job.log.push(
+        `Progresso: ${queue.totals.processed}/${queue.totals.images} · ${queue.totals.downloaded} baixadas · ${queue.totals.skipped} já existentes · ${queue.totals.errors} erros.`
+      );
+    }
+    if (queue.last_error) job.log.push(`Erro: ${queue.last_error}`);
+    if (job.log.length > 200) job.log.splice(0, job.log.length - 200);
+  }
+
+  if (!queue.active && job.status === "rodando") {
+    const result = queue.last_summary?.result;
+    job.status = result === "completed" ? "ok" : "erro";
+    job.fim = Date.now();
+    job.etapa = result === "blocked" ? "Bloqueado pelo servidor" : result === "completed" ? "Concluído" : "Encerrado com erro";
+    job.detalhe = `${queue.totals.downloaded} baixadas · ${queue.totals.skipped} existentes · ${queue.totals.errors} erros`;
+    job.log.push(`Fila encerrada: ${job.detalhe}.`);
+    runtime.__fanCapsJobId = undefined;
+    runtime.__fanCapsWasActive = false;
+  }
+}

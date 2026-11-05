@@ -31,6 +31,7 @@ class QueueService:
         self.items = []
         self.lock = threading.RLock()
         self.pause_event = threading.Event()
+        self.cancel_event = threading.Event()
         self.active = False
         self.worker = None
         self.current_key = None
@@ -134,6 +135,8 @@ class QueueService:
                 "totals": totals,
                 "last_error": self.last_error,
                 "last_summary": self.last_summary,
+                "project_root": str(Path(__file__).resolve().parents[1]),
+                "download_dir": str(DOWNLOAD_DIR.resolve()),
             }
 
     def start(self):
@@ -143,6 +146,7 @@ class QueueService:
             pending = [item for item in self.items if item["status"] == "waiting"]
             if not pending:
                 raise ValueError("Não há episódios aguardando na fila.")
+            self.cancel_event.clear()
             self.pause_event.clear()
             self.active = True
             self.last_error = None
@@ -167,23 +171,40 @@ class QueueService:
 
     def clear(self):
         with self.lock:
+            if self.active and not self.pause_event.is_set():
+                raise RuntimeError("Pause a fila antes de limpá-la.")
+
+            worker = None
             if self.active:
-                raise RuntimeError("Pause ou aguarde o fim da fila antes de limpá-la.")
+                self.cancel_event.set()
+                self.pause_event.clear()
+                worker = self.worker
+
+        # Aguarda o download atual terminar sem manter o lock.
+        if worker and worker.is_alive():
+            worker.join()
+
+        with self.lock:
             self.items.clear()
             self.current_key = None
             self.last_error = None
             self.last_summary = None
+            self.cancel_event.clear()
             return self.snapshot()
 
     def _wait_if_paused(self):
-        while self.pause_event.is_set():
+        while self.pause_event.is_set() and not self.cancel_event.is_set():
             time.sleep(0.2)
+        return self.cancel_event.is_set()
 
     def _run(self, pending):
         downloader = ImageDownloader(self.database)
         blocked = False
         try:
             for item in pending:
+                if self._wait_if_paused():
+                    break
+
                 with self.lock:
                     self.current_key = item["key"]
                     item["status"] = "running"
@@ -193,7 +214,9 @@ class QueueService:
                 folder.mkdir(parents=True, exist_ok=True)
 
                 for image_id in episode.iter_download_ids():
-                    self._wait_if_paused()
+                    if self._wait_if_paused():
+                        break
+
                     result = downloader.download_one(
                         image_id=image_id,
                         anime_id=anime.id,
@@ -209,9 +232,16 @@ class QueueService:
                             item["skipped"] += 1
                         else:
                             item["errors"] += 1
+
+                    if self.cancel_event.is_set():
+                        break
+
                     if item["processed"] < item["image_count"]:
                         if self.pause_event.wait(1.5):
                             self._wait_if_paused()
+
+                if self.cancel_event.is_set():
+                    break
 
                 with self.lock:
                     item["status"] = "completed"
@@ -276,7 +306,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         if parsed.path == "/health":
-            return self.send_json({"ok": True, "catalog_ready": service is not None, "error": startup_error})
+            return self.send_json({"ok": True, "catalog_ready": service is not None, "error": startup_error, "project_root": str(Path(__file__).resolve().parents[1]), "download_dir": str(DOWNLOAD_DIR.resolve())})
         if service is None:
             return self.send_json({"erro": startup_error or "Serviço indisponível."}, 503)
         try:
