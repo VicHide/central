@@ -95,7 +95,7 @@ class QueueService:
             if existing:
                 return self.snapshot()
 
-            folder = DOWNLOAD_DIR / safe_name(anime.title) / safe_name(episode.title)
+            folder = DOWNLOAD_DIR / safe_name(anime.title)
             self.items.append({
                 "key": key,
                 "anime_id": anime.id,
