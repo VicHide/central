@@ -1,13 +1,13 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { estimaDuracao, estimaDuracaoTop } from "@/config";
-import { GENEROS, TEMPORADAS, ORDENS } from "@/core/generos";
+import { GENEROS, TEMPORADAS, ORDENS, TAGS, FORMATOS, SITUACOES, PAISES, DURACOES } from "@/core/generos";
 
 type Meta = { n: number; render: boolean; duracaoSeg: number; resumo: string; preparo: string };
 type Job = { id: string; titulo: string; status: "rodando" | "ok" | "erro"; inicio: number; fim?: number; log: string[]; etapa?: string; pct?: number; eta?: number; detalhe?: string; meta?: Meta };
 type Acervo = { animes: { pasta: string; imagens: number; usadas: number }[]; promos: number };
 type Saida = { nome: string; kb: number; data: number };
-type Estado = { animes: number; promos: number; navegador: boolean };
+type Estado = { animes: number; promos: number; navegador: boolean; musicas: number };
 
 const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s) % 60).padStart(2, "0")}`;
@@ -51,10 +51,13 @@ export default function Page() {
   const [tN, setTN] = useState(10);
   const [tRender, setTRender] = useState(false);
   const [tMsg, setTMsg] = useState("");
+  const [fil, setFil] = useState({ tag: "", formato: "", situacao: "", pais: "", duracao: "", de: "", ate: "", notaMin: "" });
+  const [musica, setMusica] = useState(true);
+  const setF = (k: keyof typeof fil) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => setFil({ ...fil, [k]: e.target.value });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [acervo, setAcervo] = useState<Acervo>({ animes: [], promos: 0 });
   const [saidas, setSaidas] = useState<Saida[]>([]);
-  const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false });
+  const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false, musicas: 0 });
 
   const carrega = async () => {
     try {
@@ -70,14 +73,18 @@ export default function Page() {
 
   const gerar = async () => {
     setMsg("");
-    const r = await fetch("/api/gerar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo, n, cortes, seed: seed ? Number(seed) : undefined, render }) });
+    const r = await fetch("/api/gerar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modo, n, cortes, seed: seed ? Number(seed) : undefined, render, musica }) });
     const d = await r.json();
     setMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
     carrega();
   };
   const gerarTop = async () => {
     setTMsg("");
-    const r = await fetch("/api/top", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ genero: tGenero || undefined, ordem: tOrdem, temporada: tTemporada || undefined, ano: tAno ? Number(tAno) : undefined, n: tN, render: tRender }) });
+    const r = await fetch("/api/top", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+      genero: tGenero || undefined, ordem: tOrdem, temporada: tTemporada || undefined, ano: tAno ? Number(tAno) : undefined, n: tN, render: tRender, musica,
+      tag: fil.tag || undefined, formato: fil.formato || undefined, situacao: fil.situacao || undefined, pais: fil.pais || undefined, duracao: fil.duracao || undefined,
+      de: fil.de ? Number(fil.de) : undefined, ate: fil.ate ? Number(fil.ate) : undefined, notaMin: fil.notaMin ? Number(fil.notaMin) : undefined,
+    }) });
     const d = await r.json();
     setTMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
     carrega();
@@ -112,7 +119,7 @@ export default function Page() {
           <div className="crumb">Central do Canal <span>/</span> Produção</div>
           <div className={`top-status ${estado.animes > 0 ? "ready" : "warn"}`} aria-live="polite">
             {estado.animes > 0 ? `Acervo pronto · ${estado.animes} animes · ${estado.promos} promos` : "Acervo vazio: adicione pastas em acervo/"}
-            {" · "}{estado.navegador ? "navegador do Remotion instalado" : "navegador baixa no 1º render"}
+            {" · "}{estado.musicas > 0 ? `${estado.musicas} faixa(s) de música` : "sem música (veja data/musicas.json)"}{" · "}{estado.navegador ? "navegador do Remotion instalado" : "navegador baixa no 1º render"}
           </div>
         </header>
 
@@ -141,6 +148,7 @@ export default function Page() {
                   <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
                 </div>
                 <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
+                <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
                 <div className="form-footer">
                   <p className="helper">Sem renderizar, o painel só prepara os dados e as imagens. Dá para conferir no Remotion Studio antes.</p>
                   <div className="actions">
@@ -182,6 +190,20 @@ export default function Page() {
                 <label>Ano<input type="number" min={1980} max={2100} value={tAno} onChange={(e) => setTAno(e.target.value)} placeholder="qualquer" /></label>
                 <label>Quantidade<input type="number" min={3} max={10} value={tN} onChange={(e) => setTN(Number(e.target.value))} /></label>
               </div>
+              <details className="avancado">
+                <summary>Filtros avançados</summary>
+                <div className="fields" style={{ marginTop: 14 }}>
+                  <label>Tag<select value={fil.tag} onChange={setF("tag")}><option value="">Qualquer</option>{TAGS.map((x) => <option key={x.slug} value={x.slug}>{x.pt}</option>)}</select></label>
+                  <label>Formato<select value={fil.formato} onChange={setF("formato")}><option value="">Todos</option>{FORMATOS.map((x) => <option key={x.slug} value={x.slug}>{x.pt}</option>)}</select></label>
+                  <label>Situação<select value={fil.situacao} onChange={setF("situacao")}><option value="">Qualquer</option>{SITUACOES.map((x) => <option key={x.slug} value={x.slug}>{x.pt}</option>)}</select></label>
+                  <label>País de origem<select value={fil.pais} onChange={setF("pais")}><option value="">Qualquer</option>{PAISES.map((x) => <option key={x.slug} value={x.slug}>{x.pt}</option>)}</select></label>
+                  <label>Duração<select value={fil.duracao} onChange={setF("duracao")}><option value="">Qualquer</option>{DURACOES.map((x) => <option key={x.slug} value={x.slug}>{x.pt}</option>)}</select></label>
+                  <label>Estreou de (ano)<input type="number" min={1960} max={2100} value={fil.de} onChange={setF("de")} placeholder="qualquer" /></label>
+                  <label>Até (ano)<input type="number" min={1960} max={2100} value={fil.ate} onChange={setF("ate")} placeholder="qualquer" /></label>
+                  <label>Nota mínima (0 a 100)<input type="number" min={0} max={100} value={fil.notaMin} onChange={setF("notaMin")} placeholder="sem mínimo" /></label>
+                </div>
+              </details>
+              <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
               <label className="check"><input type="checkbox" checked={tRender} onChange={(e) => setTRender(e.target.checked)} /> Renderizar o Short ao terminar</label>
               <div className="form-footer">
                 <p className="helper">Duração estimada: {mmss(estimaDuracaoTop(tN))}. Sem temporada, o ano filtra só pelo ano de estreia. Nada é publicado sozinho.</p>

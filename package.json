@@ -11,14 +11,15 @@
     "gerar": "tsx src/core/gerar.ts",
     "painel": "next dev -H 127.0.0.1 -p 3000",
     "painel:build": "next build && next start -H 127.0.0.1 -p 3000",
-    "top": "tsx src/core/top.ts"
+    "top": "tsx src/core/top.ts",
+    "sons": "tsx src/core/sons.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.540",
     "@remotion/cli": "4.0.540",
     "@remotion/google-fonts": "4.0.540",
     "@remotion/renderer": "4.0.540",
-    "next": "^14.2.35",
+    "next": "^15.5.28",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "remotion": "4.0.540",
@@ -29,5 +30,8 @@
     "@types/react": "^18.3.0",
     "tsx": "^4.23.15",
     "typescript": "^5.4.0"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
   }
 }

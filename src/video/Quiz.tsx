@@ -10,6 +10,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Bangers";
+import { Efeito, Tics, Musica, MusicaProps } from "./Sons";
 
 const { fontFamily } = loadFont();
 
@@ -26,6 +27,7 @@ export type QuizProps = {
   segPorDica: number;
   segRevelacao: number;
   canal: string;
+  musica?: MusicaProps;
 };
 
 // Níveis: a dica 1 é a mais difícil e vale mais pontos.
@@ -148,6 +150,12 @@ const Cena: React.FC<{ p: Pergunta; total: number; props: QuizProps }> = ({ p, t
 
       {/* Revelação da resposta */}
       {revelando && <Resposta nome={p.anime} frame={frame - 4 * dica} s={s} />}
+
+      {/* Áudio: entrada, dicas, tic-tac no fim e revelação */}
+      <Efeito src="sfx/whoosh.wav" de={0} volume={0.35} />
+      {[1, 2, 3].map((i) => <Efeito key={i} src="sfx/pop.wav" de={i * dica} volume={0.5} />)}
+      <Tics fimFrame={4 * dica} />
+      <Efeito src="sfx/reveal.wav" de={4 * dica} volume={0.6} />
     </AbsoluteFill>
   );
 };
@@ -169,6 +177,7 @@ export const Quiz: React.FC<QuizProps> = (props) => {
   const d = duracaoPergunta(props);
   return (
     <AbsoluteFill>
+      <Musica musica={props.musica} />
       {props.perguntas.map((p, i) => (
         <Sequence key={p.numero} from={i * d} durationInFrames={d}>
           <Cena p={p} total={props.perguntas.length} props={props} />

@@ -10,6 +10,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { FPS, INK, PAPEL, contorno, Resposta } from "./Quiz";
+import { Efeito, Tics, Musica, MusicaProps } from "./Sons";
 
 // x e y em % da imagem (0-100): o ponto que fica no centro. zoom 1 = imagem inteira.
 export type Corte = { x: number; y: number; zoom: number };
@@ -25,6 +26,7 @@ export type ZoomProps = {
   segRevelacao: number;
   canal: string;
   transicao: "corte" | "suave";
+  musica?: MusicaProps;
 };
 
 const INTEIRA: Corte = { x: 50, y: 50, zoom: 1 };
@@ -111,6 +113,12 @@ const CenaZoom: React.FC<{ p: PerguntaZoom; z: ZoomProps }> = ({ p, z }) => {
       <div style={{ position: "absolute", left: (width - W) / 2, top: 28 * s, ...contorno(s * 0.5), fontSize: 40 * s }}>{z.canal}</div>
 
       {revelando && <Resposta nome={p.anime} frame={frame - ps.length * seg} s={s} />}
+
+      {/* Áudio: entrada, cada etapa do zoom, tic-tac no fim e revelação */}
+      <Efeito src="sfx/pop.wav" de={0} volume={0.5} />
+      {ps.slice(1).map((_, k) => <Efeito key={k} src="sfx/whoosh.wav" de={(k + 1) * seg} volume={0.3} />)}
+      <Tics fimFrame={ps.length * seg} />
+      <Efeito src="sfx/reveal.wav" de={ps.length * seg} volume={0.6} />
     </AbsoluteFill>
   );
 };
@@ -119,6 +127,7 @@ export const QuizZoom: React.FC<ZoomProps> = (z) => {
   let inicio = 0;
   return (
     <AbsoluteFill>
+      <Musica musica={z.musica} />
       {z.perguntas.map((p) => {
         const d = duracao(p, z);
         const from = inicio;

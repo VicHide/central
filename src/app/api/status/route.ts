@@ -12,7 +12,15 @@ export async function GET() {
     : 0;
   const pp = path.join(raiz, "promos");
   const promos = fs.existsSync(pp) ? fs.readdirSync(pp).filter((f) => IMG.test(f)).length : 0;
+  let musicas = 0;
+  const cat = path.join(raiz, "data", "musicas.json");
+  if (fs.existsSync(cat)) {
+    try {
+      const faixas = (JSON.parse(fs.readFileSync(cat, "utf8")).faixas ?? []) as { arquivo?: string; ativa?: boolean }[];
+      musicas = faixas.filter((f) => f.ativa !== false && f.arquivo && fs.existsSync(path.join(raiz, "public", f.arquivo))).length;
+    } catch { /* catálogo com erro de JSON */ }
+  }
   // O Remotion guarda o navegador interno aqui depois da primeira renderização.
   const navegador = fs.existsSync(path.join(raiz, "node_modules", ".remotion"));
-  return Response.json({ animes, promos, navegador });
+  return Response.json({ animes, promos, navegador, musicas });
 }
