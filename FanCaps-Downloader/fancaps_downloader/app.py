@@ -693,6 +693,10 @@ class FanCapsApp(ctk.CTk):
                 )
             )
 
+    def _wait_while_download_paused(self):
+        while self.download_pause_event.is_set():
+            time.sleep(0.2)
+
     def _toggle_download_pause(self):
         if not self.download_active:
             return
@@ -779,8 +783,7 @@ class FanCapsApp(ctk.CTk):
                 folder.mkdir(parents=True, exist_ok=True)
 
                 for image_id in episode.iter_download_ids():
-                    while self.download_pause_event.is_set():
-                        time.sleep(0.2)
+                    self._wait_while_download_paused()
 
                     destination = folder / f"{image_id}.jpg"
                     result = downloader.download_one(
@@ -811,9 +814,13 @@ class FanCapsApp(ctk.CTk):
                         errors
                     ))
 
-                    # Pausa conservadora entre requisições; não tenta contornar bloqueios.
+                    # O intervalo também pode ser interrompido pela pausa.
                     if processed < total_images:
-                        time.sleep(1.5)
+                        if self.download_pause_event.wait(1.5):
+                            self._wait_while_download_paused()
+
+            # Não encerra a fila enquanto o usuário mantiver a pausa ativa.
+            self._wait_while_download_paused()
 
             self.events.put((
                 "queue_finished",
