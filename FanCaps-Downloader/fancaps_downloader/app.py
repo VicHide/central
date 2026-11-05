@@ -1504,9 +1504,9 @@ class FanCapsApp(ctk.CTk):
                         messagebox.showinfo(
                             "Fila concluída",
                             (
-                                f"Episódios processados: {len(episodes)}\\n"
-                                f"Baixadas: {downloaded}\\n"
-                                f"Já existentes: {skipped}\\n"
+                                f"Episódios processados: {len(episodes)}\n"
+                                f"Baixadas: {downloaded}\n"
+                                f"Já existentes: {skipped}\n"
                                 f"Erros: {errors}"
                             )
                         )
@@ -1517,10 +1517,10 @@ class FanCapsApp(ctk.CTk):
                         messagebox.showwarning(
                             "Fila interrompida",
                             (
-                                f"{reason}\\n\\n"
-                                f"Baixadas antes do bloqueio: {downloaded}\\n"
-                                f"Já existentes: {skipped}\\n"
-                                f"Erros: {errors}\\n\\n"
+                                f"{reason}\n\n"
+                                f"Baixadas antes do bloqueio: {downloaded}\n"
+                                f"Já existentes: {skipped}\n"
+                                f"Erros: {errors}\n\n"
                                 "A fila restante foi descartada. Aguarde o fim do bloqueio."
                             )
                         )
@@ -1531,9 +1531,9 @@ class FanCapsApp(ctk.CTk):
                         messagebox.showerror(
                             "Erro na fila",
                             (
-                                f"{reason}\\n\\n"
-                                f"Baixadas: {downloaded}\\n"
-                                f"Já existentes: {skipped}\\n"
+                                f"{reason}\n\n"
+                                f"Baixadas: {downloaded}\n"
+                                f"Já existentes: {skipped}\n"
                                 f"Erros: {errors}"
                             )
                         )
@@ -1541,88 +1541,6 @@ class FanCapsApp(ctk.CTk):
                     if self.current_anime:
                         self._select_anime(self.current_anime)
                     self._update_queue_controls()
-
-                elif kind == "download_progress":
-                    (
-                        _, current, total, downloaded, skipped, errors,
-                        anime_title, episode_title
-                    ) = event
-                    self.download_progress.set(current / max(1, total))
-                    self.download_status.configure(
-                        text=(
-                            f"{anime_title} / {episode_title}: "
-                            f"{current}/{total} • "
-                            f"{downloaded} baixadas • {skipped} existentes "
-                            f"• {errors} erros"
-                        )
-                    )
-
-                elif kind == "download_finished":
-                    (
-                        _, downloaded, skipped, errors,
-                        anime, episode, row
-                    ) = event
-                    self.download_active = False
-                    self.download_progress.set(1)
-                    self.download_status.configure(
-                        text=(
-                            f"Concluído: {downloaded} baixadas, "
-                            f"{skipped} já existentes e {errors} erros."
-                        )
-                    )
-                    self._refresh_episode_download_button(row)
-                    self.local_counts.pop((anime.id, episode.number), None)
-                    if self.current_anime and self.current_anime.id == anime.id:
-                        self._select_anime(anime)
-                    messagebox.showinfo(
-                        "Download concluído",
-                        (
-                            f"Baixadas: {downloaded}\n"
-                            f"Já existentes: {skipped}\n"
-                            f"Erros: {errors}"
-                        )
-                    )
-
-                elif kind == "download_blocked":
-                    (
-                        _, reason, downloaded, skipped, errors,
-                        anime, episode, row
-                    ) = event
-                    self.download_active = False
-                    self.download_status.configure(
-                        text="Fila interrompida: servidor bloqueou as requisições."
-                    )
-                    self._refresh_episode_download_button(row)
-                    messagebox.showwarning(
-                        "Download interrompido",
-                        (
-                            f"{reason}\n\n"
-                            f"Baixadas antes do bloqueio: {downloaded}\n"
-                            f"Já existentes: {skipped}\n"
-                            f"Erros: {errors}\n\n"
-                            "Não tente novamente enquanto o bloqueio estiver ativo."
-                        )
-                    )
-
-                elif kind == "download_error":
-                    (
-                        _, error, downloaded, skipped, errors,
-                        anime, episode, row
-                    ) = event
-                    self.download_active = False
-                    self.download_status.configure(
-                        text="Fila encerrada com erro."
-                    )
-                    self._refresh_episode_download_button(row)
-                    messagebox.showerror(
-                        "Erro no download",
-                        (
-                            f"{error}\n\n"
-                            f"Baixadas: {downloaded}\n"
-                            f"Já existentes: {skipped}\n"
-                            f"Erros: {errors}"
-                        )
-                    )
 
                 elif kind == "analysis_progress":
                     self.progress.set(event[1])
@@ -1677,16 +1595,6 @@ class FanCapsApp(ctk.CTk):
             pass
 
         self.after(150, self._process_events)
-
-    def _refresh_episode_download_button(self, row):
-        try:
-            if not row.winfo_exists():
-                return
-            for child in row.winfo_children():
-                if isinstance(child, ctk.CTkButton) and child.cget("text") == "Baixar":
-                    child.configure(state="normal")
-        except Exception:
-            pass
 
     # =========================================================
     # UTILITÁRIOS
