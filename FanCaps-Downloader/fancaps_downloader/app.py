@@ -525,11 +525,7 @@ class FanCapsApp(ctk.CTk):
             row = ctk.CTkFrame(self.episode_list)
             row.pack(fill="x", padx=5, pady=4)
 
-            folder = (
-                DOWNLOAD_DIR
-                / self._safe_name(anime.title)
-                / self._safe_name(ep.title)
-            )
+            folder = DOWNLOAD_DIR / self._safe_name(anime.title)
 
             local_key = (anime.id, ep.number)
             local_count = self.local_counts.get(local_key)
