@@ -749,6 +749,10 @@ class FanCapsApp(ctk.CTk):
         self.download_active = True
         self.queue_start_button.configure(state="disabled")
         self.queue_clear_button.configure(state="disabled")
+        self.queue_pause_button.configure(
+            text="Pausar fila",
+            state="normal"
+        )
         self.download_progress.set(0)
         self.download_status.configure(text="Preparando fila...")
 
