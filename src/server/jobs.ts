@@ -67,10 +67,22 @@ type FanCapsQueueSnapshot = {
 const runtime = g as typeof g & { __fanCapsJobId?: string; __fanCapsLastProgress?: string; __fanCapsWasActive?: boolean };
 
 export function syncFanCapsJob(queue: FanCapsQueueSnapshot) {
-  const hasWork = queue.items.length > 0;
-  if (!hasWork) return;
-
   let job = runtime.__fanCapsJobId ? jobs.find((item) => item.id === runtime.__fanCapsJobId) : undefined;
+
+  // Se a fila foi limpa, encerra o registro que ainda estiver aberto no painel.
+  if (queue.items.length === 0) {
+    if (job?.status === "rodando") {
+      job.status = "ok";
+      job.fim = Date.now();
+      job.etapa = "Fila limpa";
+      job.detalhe = "A fila foi removida.";
+      job.log.push("Fila removida pelo usuário.");
+      runtime.__fanCapsJobId = undefined;
+      runtime.__fanCapsLastProgress = "";
+      runtime.__fanCapsWasActive = false;
+    }
+    return;
+  }
   if (queue.active && (!job || job.status !== "rodando" || !runtime.__fanCapsWasActive)) {
     job = {
       id: `fancaps-${Date.now().toString(36)}`,
