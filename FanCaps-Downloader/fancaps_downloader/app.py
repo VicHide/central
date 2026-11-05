@@ -1465,6 +1465,83 @@ class FanCapsApp(ctk.CTk):
                             text="Pasta carregada. Pronta para análise."
                         )
 
+                elif kind == "queue_progress":
+                    (
+                        _, current, total, episode_index, episode_total,
+                        anime_title, episode_title, downloaded, skipped, errors
+                    ) = event
+                    self.download_progress.set(current / max(1, total))
+                    self.download_status.configure(
+                        text=(
+                            f"Episódio {episode_index}/{episode_total}: "
+                            f"{anime_title} / {episode_title} • "
+                            f"Imagem {current}/{total} • "
+                            f"{downloaded} baixadas • {skipped} existentes "
+                            f"• {errors} erros"
+                        )
+                    )
+
+                elif kind in ("queue_finished", "queue_blocked", "queue_error"):
+                    if kind == "queue_finished":
+                        _, downloaded, skipped, errors, episodes = event
+                    elif kind == "queue_blocked":
+                        _, reason, downloaded, skipped, errors, episodes = event
+                    else:
+                        _, reason, downloaded, skipped, errors, episodes = event
+
+                    self.download_active = False
+                    self.download_queue.clear()
+                    self.download_queue_keys.clear()
+
+                    if kind == "queue_finished":
+                        self.download_progress.set(1)
+                        self.download_status.configure(
+                            text=(
+                                f"Fila concluída: {downloaded} baixadas, "
+                                f"{skipped} existentes e {errors} erros."
+                            )
+                        )
+                        messagebox.showinfo(
+                            "Fila concluída",
+                            (
+                                f"Episódios processados: {len(episodes)}\\n"
+                                f"Baixadas: {downloaded}\\n"
+                                f"Já existentes: {skipped}\\n"
+                                f"Erros: {errors}"
+                            )
+                        )
+                    elif kind == "queue_blocked":
+                        self.download_status.configure(
+                            text="Fila interrompida por bloqueio do servidor."
+                        )
+                        messagebox.showwarning(
+                            "Fila interrompida",
+                            (
+                                f"{reason}\\n\\n"
+                                f"Baixadas antes do bloqueio: {downloaded}\\n"
+                                f"Já existentes: {skipped}\\n"
+                                f"Erros: {errors}\\n\\n"
+                                "A fila restante foi descartada. Aguarde o fim do bloqueio."
+                            )
+                        )
+                    else:
+                        self.download_status.configure(
+                            text="Fila encerrada com erro."
+                        )
+                        messagebox.showerror(
+                            "Erro na fila",
+                            (
+                                f"{reason}\\n\\n"
+                                f"Baixadas: {downloaded}\\n"
+                                f"Já existentes: {skipped}\\n"
+                                f"Erros: {errors}"
+                            )
+                        )
+
+                    if self.current_anime:
+                        self._select_anime(self.current_anime)
+                    self._update_queue_controls()
+
                 elif kind == "download_progress":
                     (
                         _, current, total, downloaded, skipped, errors,
