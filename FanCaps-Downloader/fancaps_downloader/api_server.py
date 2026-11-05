@@ -276,7 +276,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         if parsed.path == "/health":
-            return self.send_json({"ok": True, "catalog_ready": service is not None, "error": startup_error})
+            return self.send_json({"ok": True, "catalog_ready": service is not None, "error": startup_error, "project_root": str(Path(__file__).resolve().parents[1]), "download_dir": str(DOWNLOAD_DIR.resolve())})
         if service is None:
             return self.send_json({"erro": startup_error or "Serviço indisponível."}, 503)
         try:
