@@ -3,15 +3,148 @@
   "subtitulo": "melhor avaliados",
   "fonte": "Dados e capas: AniList",
   "itens": [
-    { "rank": 1, "titulo": "Título de exemplo 1", "nota": 88, "generos": ["Gênero A", "Gênero B"], "estudio": "Estúdio X", "episodios": 24, "capa": null },
-    { "rank": 2, "titulo": "Título de exemplo 2", "nota": 86, "generos": ["Gênero A"], "estudio": "Estúdio Y", "episodios": 12, "capa": null },
-    { "rank": 3, "titulo": "Título de exemplo 3", "nota": 85, "generos": ["Gênero C"], "estudio": null, "episodios": null, "capa": null },
-    { "rank": 4, "titulo": "Título de exemplo 4", "nota": 84, "generos": ["Gênero B"], "estudio": "Estúdio X", "episodios": 26, "capa": null },
-    { "rank": 5, "titulo": "Título de exemplo 5", "nota": 83, "generos": ["Gênero A", "Gênero C"], "estudio": "Estúdio Z", "episodios": 13, "capa": null },
-    { "rank": 6, "titulo": "Título de exemplo 6", "nota": 82, "generos": ["Gênero D"], "estudio": "Estúdio Y", "episodios": 24, "capa": null },
-    { "rank": 7, "titulo": "Título de exemplo 7", "nota": 81, "generos": ["Gênero A"], "estudio": "Estúdio X", "episodios": 12, "capa": null },
-    { "rank": 8, "titulo": "Título de exemplo 8", "nota": 80, "generos": ["Gênero B", "Gênero D"], "estudio": "Estúdio Z", "episodios": 25, "capa": null },
-    { "rank": 9, "titulo": "Título de exemplo 9", "nota": 79, "generos": ["Gênero C"], "estudio": "Estúdio Y", "episodios": 11, "capa": null },
-    { "rank": 10, "titulo": "Título de exemplo 10 com nome bem longo para testar a quebra de linha", "nota": 78, "generos": ["Gênero A"], "estudio": "Estúdio X", "episodios": 13, "capa": null }
+    {
+      "rank": 1,
+      "titulo": "Título de exemplo 1",
+      "nota": 88,
+      "generos": [
+        "Gênero A",
+        "Gênero B"
+      ],
+      "estudio": "Estúdio X",
+      "episodios": 24,
+      "capa": null,
+      "ano": 2024,
+      "formato": "MOVIE",
+      "popularidade": 250000
+    },
+    {
+      "rank": 2,
+      "titulo": "Título de exemplo 2",
+      "nota": 86,
+      "generos": [
+        "Gênero A"
+      ],
+      "estudio": "Estúdio Y",
+      "episodios": 12,
+      "capa": null,
+      "ano": 2023,
+      "formato": "TV",
+      "popularidade": 232000
+    },
+    {
+      "rank": 3,
+      "titulo": "Título de exemplo 3",
+      "nota": 85,
+      "generos": [
+        "Gênero C"
+      ],
+      "estudio": null,
+      "episodios": null,
+      "capa": null,
+      "ano": 2022,
+      "formato": "TV",
+      "popularidade": 214000
+    },
+    {
+      "rank": 4,
+      "titulo": "Título de exemplo 4",
+      "nota": 84,
+      "generos": [
+        "Gênero B"
+      ],
+      "estudio": "Estúdio X",
+      "episodios": 26,
+      "capa": null,
+      "ano": 2021,
+      "formato": "MOVIE",
+      "popularidade": 196000
+    },
+    {
+      "rank": 5,
+      "titulo": "Título de exemplo 5",
+      "nota": 83,
+      "generos": [
+        "Gênero A",
+        "Gênero C"
+      ],
+      "estudio": "Estúdio Z",
+      "episodios": 13,
+      "capa": null,
+      "ano": 2020,
+      "formato": "TV",
+      "popularidade": 178000
+    },
+    {
+      "rank": 6,
+      "titulo": "Título de exemplo 6",
+      "nota": 82,
+      "generos": [
+        "Gênero D"
+      ],
+      "estudio": "Estúdio Y",
+      "episodios": 24,
+      "capa": null,
+      "ano": 2019,
+      "formato": "TV",
+      "popularidade": 160000
+    },
+    {
+      "rank": 7,
+      "titulo": "Título de exemplo 7",
+      "nota": 81,
+      "generos": [
+        "Gênero A"
+      ],
+      "estudio": "Estúdio X",
+      "episodios": 12,
+      "capa": null,
+      "ano": 2018,
+      "formato": "MOVIE",
+      "popularidade": 142000
+    },
+    {
+      "rank": 8,
+      "titulo": "Título de exemplo 8",
+      "nota": 80,
+      "generos": [
+        "Gênero B",
+        "Gênero D"
+      ],
+      "estudio": "Estúdio Z",
+      "episodios": 25,
+      "capa": null,
+      "ano": 2017,
+      "formato": "TV",
+      "popularidade": 124000
+    },
+    {
+      "rank": 9,
+      "titulo": "Título de exemplo 9",
+      "nota": 79,
+      "generos": [
+        "Gênero C"
+      ],
+      "estudio": "Estúdio Y",
+      "episodios": 11,
+      "capa": null,
+      "ano": 2016,
+      "formato": "TV",
+      "popularidade": 106000
+    },
+    {
+      "rank": 10,
+      "titulo": "Título de exemplo 10 com nome bem longo para testar a quebra de linha",
+      "nota": 78,
+      "generos": [
+        "Gênero A"
+      ],
+      "estudio": "Estúdio X",
+      "episodios": 13,
+      "capa": null,
+      "ano": 2015,
+      "formato": "MOVIE",
+      "popularidade": 88000
+    }
   ]
 }

@@ -1,0 +1,1 @@
+Copie seu anime_data.json para esta pasta, mantendo o nome anime_data.json.

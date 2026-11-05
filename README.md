@@ -61,3 +61,16 @@ Consulta o AniList (sem scraping), baixa as capas dos itens, escreve `data/top.j
 (título, ranking e descrição) e, com `--render`, gera o Short (composição `TopShort`, 1080x1920).
 O painel tem a seção "Top 10 para Shorts". Resultados ficam em cache por 12 h em `data/cache/`.
 Leia os termos de uso do AniList antes de monetizar. A capa é arte promocional com dono: teste como não listado.
+
+## Áudio e música
+- **Efeitos** (`public/sfx`, gerados por síntese própria com `npm run sons`): entrada, pop das dicas, **tic-tac que acelera nos últimos 2 s antes da revelação** (quiz e zoom), som de revelação. O Top usa whoosh e pop.
+- **Música de fundo**: baixe as faixas no site da NCS, coloque em `public/musica/` e descreva cada uma em `data/musicas.json`
+  (campo `credito` = texto oficial da faixa, que está na descrição do vídeo dela no canal da NCS). O `gerar` e o `top` sorteiam
+  uma faixa ativa, mixam em volume baixo com entrada/saída suaves e **colocam o crédito no `.txt` de publicação**.
+  Use `--sem-musica` para desligar. As faixas não vêm no projeto (você precisa baixá-las e seguir a política de uso).
+- Confira sempre a política atual da NCS e suba o primeiro vídeo como não listado para ver se há claim.
+
+## Top 10: mais filtros
+`--tag isekai`, `--formato tv|filme|ova-ona`, `--situacao finalizado|lancando`, `--pais jp|cn|kr`, `--duracao curto|medio|longo`,
+`--de 2015 --ate 2020`, `--nota-min 75`, além de gênero, temporada/ano e critério. O Short agora dura cerca de 56 s
+(abertura 3 s, 5 s por item, fechamento 3 s) e mostra nota, gêneros, ano, formato, episódios, estúdio e popularidade.

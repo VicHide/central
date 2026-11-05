@@ -1,0 +1,62 @@
+:root {
+  --bg: #f1f3f0;
+  --panel: #ffffff;
+  --panel-rgb: 255 255 255;
+  --panel-soft: #f7f8f6;
+  --panel-soft-hover: #e8ece7;
+  --text: #20251f;
+  --muted: #586158;
+  --border: #d5dbd4;
+  --soft: #e3e7e2;
+  --dark: #765238;
+  --dark-hover: #62442f;
+  --secondary: #526b59;
+  --secondary-hover: #405646;
+  --info: #526b59;
+  --info-border: #c5d2c6;
+  --info-wash: #f0f4ef;
+  --success: #376a45;
+  --success-border: #c6d7c8;
+  --success-wash: #f0f5ef;
+  --warning: #815b31;
+  --warning-border: #e1d2b9;
+  --warning-wash: #faf6ef;
+  --danger: #a3433a;
+  --danger-hover: #84352e;
+  --selected: #765238;
+  --selected-border: #cbb9a8;
+  --selected-wash: #f5f0eb;
+  --focus-ring: #765238;
+  --focus-ring-soft: rgb(118 82 56 / 18%);
+  --font-ui: Inter, system-ui, sans-serif;
+  --shadow-ink: 32 37 31;
+}
+html, body { background: #f1f3f0 !important; color: #20251f; font-family: Inter, system-ui, sans-serif !important; }
+body { padding: 24px 18px 72px !important; }
+body::before, body::after, .anime-bg-art { display: none !important; }
+.app-header { max-width: 1240px !important; padding: 24px 8px 20px !important; }
+.app-header h1 { color: #20251f !important; font-weight: 500 !important; letter-spacing: -.04em !important; }
+.app-header .header-kicker { color: #765238 !important; }
+.app-header .sub { color: #586158 !important; }
+main { position: relative; z-index: 1; max-width: 1240px !important; padding: 0 0 32px !important; }
+.panel, .shared-status-panel, .modal-box, .floating-nav {
+  border-color: #d5dbd4 !important;
+  box-shadow: 0 3px 14px rgb(32 37 31 / 4%) !important;
+}
+.panel { border-radius: 14px !important; }
+button, input, select { font-family: Inter, system-ui, sans-serif !important; }
+button { border-radius: 999px !important; }
+button:not(.light):not(.quiet):not(.source-link) { background-color: #765238 !important; }
+button:not(.light):not(.quiet):not(.source-link):hover { background-color: #62442f !important; }
+button.light, button.quiet { color: #20251f !important; border-color: #d5dbd4 !important; background: #f7f8f6 !important; }
+input, select { border-color: #b9c1b9 !important; border-radius: 9px !important; }
+#proxyDetails, .proxy-details { display: none !important; }
+.central-remote-note {
+  max-width: 1240px; margin: 0 auto 14px; padding: 11px 14px;
+  border: 1px solid #e1d2b9; border-radius: 10px;
+  background: #faf6ef; color: #72532e; font-size: 12px;
+}
+@media (max-width: 760px) {
+  body { padding: 12px 12px 48px !important; }
+  .app-header { padding: 18px 4px 14px !important; }
+}

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
 import { renderVideo } from "./render";
+import { escolheMusica } from "./musica";
 import { SEG_POR_CORTE, SEG_REVELACAO, INTRO_SEG } from "../config";
 
 const RAIZ = process.cwd();
@@ -134,13 +135,15 @@ async function main() {
   }
   fs.writeFileSync(path.join(RAIZ, "data", "intro.json"), JSON.stringify({ modo, promos: promos.length ? promos : [null, null, null] }, null, 2));
 
+  const musica = escolheMusica(rand, !process.argv.includes("--sem-musica"));
+
   // Texto de publicação (capítulos sem spoiler).
   let t = INTRO_SEG; // a abertura vem antes da pergunta 1
   const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
   const caps = ["00:00 Abertura", ...duracoes.map((d, i) => { const l = `${mmss(t)} Pergunta ${i + 1}`; t += d; return l; })];
   const titulo = `Adivinhe ${n} animes ${modo === "zoom" ? "pelo zoom" : "com 4 dicas"}`;
   fs.mkdirSync(path.join(RAIZ, "out"), { recursive: true });
-  fs.writeFileSync(path.join(RAIZ, "out", `${modo}-${seed}.txt`), `${titulo}\n\n${caps.join("\n")}\n`);
+  fs.writeFileSync(path.join(RAIZ, "out", `${modo}-${seed}.txt`), `${titulo}\n\n${caps.join("\n")}\n${musica.credito ? `\nMúsica:\n${musica.credito}\n` : ""}`);
 
   console.log(`OK: ${n} animes, modo ${modo}, seed ${seed}.\nDados: ${path.relative(RAIZ, arquivoDados)} | Texto: out/${modo}-${seed}.txt`);
 

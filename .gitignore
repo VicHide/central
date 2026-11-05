@@ -1,0 +1,37 @@
+﻿# Dependências e builds
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Acervo e arquivos gerados
+Acervo/
+data/cache/
+data/jobs/
+public/musica/
+
+# Bancos de dados
+*.db
+*.sqlite
+*.sqlite3
+
+# Sistema e editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Arquivos locais do FanCaps
+FanCaps-Downloader/downloads/
+

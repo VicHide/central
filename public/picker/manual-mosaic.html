@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>三阶段马赛克工坊</title>
+  <style>
+    :root {
+      --bg: oklch(0.965 0.012 255);
+      --surface: oklch(0.992 0.005 255);
+      --surface-soft: oklch(0.948 0.014 255);
+      --surface-strong: oklch(0.918 0.020 255);
+      --ink: oklch(0.235 0.033 263);
+      --muted: oklch(0.520 0.028 260);
+      --faint: oklch(0.655 0.023 258);
+      --line: oklch(0.865 0.020 255);
+      --line-strong: oklch(0.760 0.032 255);
+      --accent: oklch(0.565 0.215 18);
+      --accent-hover: oklch(0.505 0.205 18);
+      --accent-soft: oklch(0.945 0.036 18);
+      --teal: oklch(0.505 0.082 188);
+      --teal-soft: oklch(0.938 0.029 188);
+      --success: oklch(0.515 0.120 150);
+      --danger: oklch(0.535 0.190 25);
+      --focus: oklch(0.705 0.140 210 / 0.34);
+      --shadow: 0 18px 45px rgb(33 43 62 / 0.10);
+      --shadow-soft: 0 8px 24px rgb(33 43 62 / 0.075);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font);
+      text-size-adjust: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 8% 0%, oklch(0.980 0.026 350 / 0.72), transparent 31rem),
+        radial-gradient(circle at 92% 16%, oklch(0.968 0.030 210 / 0.50), transparent 28rem),
+        linear-gradient(180deg, oklch(0.985 0.008 350), var(--bg) 31rem);
+      line-height: 1.5;
+    }
+
+    button,
+    input { font: inherit; }
+
+    button { -webkit-tap-highlight-color: transparent; }
+
+    button:focus-visible,
+    input:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .app-header {
+      position: relative;
+      z-index: 1;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 36px 28px 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 28px;
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 9px;
+      color: var(--accent);
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 5px var(--accent-soft);
+    }
+
+    h1,
+    h2,
+    h3,
+    p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 8px;
+      font-size: 2.2rem;
+      line-height: 1.12;
+      letter-spacing: -0.035em;
+    }
+
+    .header-copy p {
+      max-width: 48rem;
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .privacy-note {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid color-mix(in oklch, var(--teal) 25%, var(--line));
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--teal-soft) 65%, var(--surface));
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .privacy-note svg { width: 15px; height: 15px; }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 28px 70px;
+    }
+
+    .top-deck {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .stage-ruler {
+      display: grid;
+      grid-template-columns: 2fr 2fr 2fr 1fr 2fr;
+      min-height: 42px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 700;
+    }
+
+    .stage-ruler span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      border-inline-end: 1px solid var(--line);
+      letter-spacing: 0.02em;
+    }
+
+    .stage-ruler span:last-child { border-inline-end: 0; }
+    .stage-ruler .gap-cell { color: var(--faint); font-weight: 500; }
+    .stage-ruler .original-cell { background: color-mix(in oklch, var(--teal-soft) 62%, var(--surface)); color: var(--teal); }
+
+    .control-deck {
+      display: grid;
+      grid-template-columns: minmax(270px, 0.72fr) minmax(510px, 1.7fr);
+      align-items: stretch;
+    }
+
+    .upload-zone {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-height: 154px;
+      padding: 24px;
+      border-inline-end: 1px solid var(--line);
+      background:
+        linear-gradient(135deg, color-mix(in oklch, var(--accent-soft) 50%, var(--surface)), var(--surface) 62%);
+      transition: background-color 180ms var(--ease), box-shadow 180ms var(--ease);
+    }
+
+    .upload-zone.is-dragging {
+      background: var(--accent-soft);
+      box-shadow: inset 0 0 0 2px var(--accent);
+    }
+
+    .upload-icon {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 15px;
+      background: var(--accent);
+      color: oklch(0.985 0.004 18);
+      box-shadow: 0 9px 20px oklch(0.565 0.215 18 / 0.23);
+    }
+
+    .upload-icon svg { width: 23px; height: 23px; }
+
+    .upload-copy { min-width: 0; }
+    .upload-copy strong { display: block; margin-bottom: 4px; font-size: 1rem; }
+    .upload-copy p { margin: 0 0 13px; color: var(--muted); font-size: 0.8rem; }
+
+    .button,
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 40px;
+      padding: 8px 13px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      background: var(--accent);
+      color: oklch(0.985 0.004 18);
+      cursor: pointer;
+      font-weight: 680;
+      font-size: 0.86rem;
+      line-height: 1.15;
+      transition: transform 160ms var(--ease), background-color 160ms var(--ease), border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+    }
+
+    button:hover { background: var(--accent-hover); }
+    button:active { transform: translateY(1px); }
+    button:disabled { cursor: not-allowed; opacity: 0.46; transform: none; }
+
+    button.secondary {
+      border-color: var(--line);
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    button.secondary:hover { background: var(--surface-soft); border-color: var(--line-strong); }
+
+    button.quiet {
+      min-height: 34px;
+      padding: 6px 9px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    button.quiet:hover { background: var(--surface-soft); color: var(--ink); }
+    button.danger:hover { background: color-mix(in oklch, var(--danger) 10%, var(--surface)); color: var(--danger); }
+
+    .global-settings { padding: 22px 26px 20px; }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+
+    .section-heading h2,
+    .section-heading h3 { margin: 0; }
+    .section-heading h2 { font-size: 1.02rem; }
+    .section-heading h3 { font-size: 0.96rem; }
+    .section-heading p { margin: 0; color: var(--muted); font-size: 0.76rem; }
+
+    .settings-line {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) auto;
+      gap: 22px;
+      align-items: end;
+    }
+
+    .preset-group { min-width: 0; }
+    .field-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 0.75rem; font-weight: 700; }
+
+    .preset-row {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(42px, 1fr));
+      gap: 6px;
+    }
+
+    .preset-button {
+      position: relative;
+      min-height: 45px;
+      padding: 6px 3px;
+      border-color: var(--line);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 680;
+    }
+
+    .preset-button::after {
+      content: attr(data-bars);
+      display: block;
+      margin-top: 2px;
+      color: var(--faint);
+      font-size: 0.58rem;
+      letter-spacing: -0.02em;
+    }
+
+    .preset-button:hover { border-color: var(--line-strong); background: var(--surface-soft); color: var(--ink); }
+
+    .preset-button.is-active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .custom-group { min-width: 254px; }
+    .number-row { display: flex; align-items: center; gap: 6px; }
+
+    .number-field {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      padding: 0 7px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+    }
+
+    .number-field span { color: var(--muted); font-size: 0.68rem; font-weight: 700; }
+
+    .number-field input {
+      width: 48px;
+      min-height: 38px;
+      padding: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .apply-custom { min-width: 62px; min-height: 40px; }
+
+    .field-error {
+      min-height: 18px;
+      margin: 6px 0 -4px;
+      color: var(--danger);
+      font-size: 0.7rem;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      gap: 22px;
+      align-items: start;
+      margin-top: 24px;
+    }
+
+    .gallery-area {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: color-mix(in oklch, var(--surface) 86%, transparent);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .gallery-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 72px;
+      padding: 16px 18px 15px 21px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .gallery-title { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+    .gallery-title h2 { margin: 0; font-size: 1.02rem; }
+    .count-badge { color: var(--accent); font-size: 0.75rem; font-weight: 750; }
+    .scope-summary { color: var(--muted); font-size: 0.75rem; }
+    .gallery-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; flex: 0 0 auto; }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 420px;
+      padding: 42px 24px;
+      text-align: center;
+    }
+
+    .empty-illustration {
+      position: relative;
+      width: 196px;
+      aspect-ratio: 16 / 9;
+      margin-bottom: 24px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      border-radius: 13px;
+      background: rgb(255 255 255);
+      box-shadow: 0 15px 30px rgb(33 43 62 / 0.11);
+    }
+
+    .empty-illustration::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg,
+          oklch(0.700 0.055 255) 0 22.22%,
+          rgb(255 255 255) 22.22% 22.9%,
+          oklch(0.790 0.042 255) 22.9% 44.44%,
+          rgb(255 255 255) 44.44% 45.12%,
+          oklch(0.865 0.028 255) 45.12% 66.66%,
+          rgb(255 255 255) 66.66% 77.77%,
+          oklch(0.930 0.018 188) 77.77% 100%);
+    }
+
+    .empty-illustration::after {
+      content: "＋";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 2rem;
+      font-weight: 350;
+    }
+
+    .empty-state h3 { margin-bottom: 7px; font-size: 1.05rem; }
+    .empty-state p { max-width: 34rem; margin-bottom: 18px; color: var(--muted); font-size: 0.84rem; }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .image-card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 180ms var(--ease), box-shadow 180ms var(--ease), transform 180ms var(--ease);
+    }
+
+    .image-card:hover { border-color: var(--line-strong); transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+    .image-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-soft); }
+
+    .preview-wrap {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, var(--surface-soft) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--surface-soft) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--surface-soft) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--surface-soft) 75%);
+      background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+      background-size: 14px 14px;
+    }
+
+    .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; background: rgb(255 255 255); }
+    .image-card.is-processing .preview-wrap img { opacity: 0.54; filter: saturate(0.55); }
+
+    .processing-cover {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgb(248 250 254 / 0.42);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .processing-cover::before {
+      content: "";
+      width: 21px;
+      height: 21px;
+      margin-inline-end: 8px;
+      border: 2px solid var(--line-strong);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .processing-cover > span { display: inline-flex; align-items: center; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .preview-stage-labels {
+      position: absolute;
+      inset: auto 0 0;
+      display: grid;
+      grid-template-columns: 2fr 2fr 2fr 1fr 2fr;
+      min-height: 25px;
+      background: rgb(35 42 57 / 0.78);
+      color: rgb(248 249 252);
+      font-size: 0.59rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .preview-stage-labels span { display: grid; place-items: center; }
+    .preview-stage-labels .blank { color: transparent; }
+
+    .card-error {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: color-mix(in oklch, var(--surface) 88%, var(--accent-soft));
+      color: var(--danger);
+      font-size: 0.76rem;
+      font-weight: 650;
+      text-align: center;
+    }
+
+    .card-meta { padding: 11px 12px 12px; }
+
+    .file-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+
+    .file-name {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .scope-badge {
+      flex: 0 0 auto;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.63rem;
+      font-weight: 750;
+    }
+
+    .scope-badge.override { background: var(--accent-soft); color: var(--accent); }
+
+    .badge-stack { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; }
+    .scope-badge.cutout { background: var(--teal-soft); color: var(--teal); }
+
+    .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .size-readout { color: var(--muted); font-size: 0.69rem; font-variant-numeric: tabular-nums; }
+    .card-actions { display: flex; gap: 2px; }
+
+    .inspector {
+      position: sticky;
+      top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .inspector-head { padding: 18px 19px 14px; border-bottom: 1px solid var(--line); }
+    .inspector-head .kicker { margin-bottom: 5px; color: var(--accent); font-size: 0.69rem; font-weight: 780; letter-spacing: 0.06em; }
+    .inspector-head h2 { margin-bottom: 4px; font-size: 1rem; }
+    .inspector-filename { overflow: hidden; margin: 0; color: var(--muted); font-size: 0.74rem; text-overflow: ellipsis; white-space: nowrap; }
+
+    .inspector-empty { padding: 28px 20px 31px; color: var(--muted); font-size: 0.82rem; text-align: center; }
+
+    .inspector-body { padding: 17px 19px 19px; }
+
+    .background-tool {
+      margin-bottom: 18px;
+      padding: 13px;
+      border: 1px solid color-mix(in oklch, var(--teal) 22%, var(--line));
+      border-radius: 11px;
+      background: color-mix(in oklch, var(--teal-soft) 58%, var(--surface));
+    }
+
+    .background-tool-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .background-tool-head strong { font-size: 0.8rem; }
+    .background-status { color: var(--teal); font-size: 0.67rem; font-weight: 750; }
+    .background-tool p { margin: 5px 0 11px; color: var(--muted); font-size: 0.7rem; line-height: 1.5; }
+    .background-actions { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+    .background-actions button { min-height: 36px; font-size: 0.75rem; }
+
+    .scope-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      margin-bottom: 18px;
+      padding: 4px;
+      border-radius: 10px;
+      background: var(--surface-soft);
+    }
+
+    .scope-switch button {
+      min-height: 36px;
+      padding: 7px 8px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .scope-switch button:hover { background: color-mix(in oklch, var(--surface) 72%, transparent); color: var(--ink); }
+    .scope-switch button.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 2px 9px rgb(33 43 62 / 0.10); }
+
+    .inspector-note {
+      margin: -8px 0 16px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.5;
+    }
+
+    .inspector-controls[aria-disabled="true"] { opacity: 0.46; pointer-events: none; }
+    .inspector .preset-row { grid-template-columns: repeat(3, 1fr); }
+    .inspector .custom-group { min-width: 0; margin-top: 17px; }
+    .inspector .number-row { align-items: stretch; }
+    .inspector .number-field { flex: 1 1 0; padding-inline: 6px; }
+    .inspector .number-field input { width: 100%; }
+    .inspector .apply-custom { margin-top: 8px; width: 100%; }
+
+    .inspector-bottom {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 7px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .progress-strip {
+      position: fixed;
+      z-index: 20;
+      inset: auto 18px 18px;
+      max-width: 680px;
+      margin-inline: auto;
+      padding: 11px 14px 12px;
+      border: 1px solid color-mix(in oklch, var(--teal) 28%, var(--line));
+      border-radius: 11px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      transform: translateY(calc(100% + 30px));
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 220ms var(--ease), opacity 160ms var(--ease);
+    }
+
+    .progress-strip.is-visible { transform: translateY(0); opacity: 1; }
+    .progress-copy { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 7px; color: var(--muted); font-size: 0.75rem; }
+    .progress-copy strong { color: var(--ink); }
+    .progress-track { height: 5px; overflow: hidden; border-radius: 999px; background: var(--surface-strong); }
+    .progress-bar { width: 0; height: 100%; border-radius: inherit; background: var(--teal); transition: width 180ms var(--ease); }
+
+    .toast {
+      position: fixed;
+      z-index: 30;
+      inset: 18px 18px auto auto;
+      max-width: min(420px, calc(100vw - 36px));
+      padding: 11px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--ink);
+      color: oklch(0.980 0.006 255);
+      box-shadow: var(--shadow);
+      font-size: 0.78rem;
+      transform: translateY(-12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 180ms var(--ease), opacity 180ms var(--ease);
+    }
+
+    .toast.is-visible { transform: translateY(0); opacity: 1; }
+    .toast.is-error { background: var(--danger); }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px !important;
+      height: 1px !important;
+      padding: 0 !important;
+      margin: -1px !important;
+      overflow: hidden !important;
+      clip: rect(0, 0, 0, 0) !important;
+      white-space: nowrap !important;
+      border: 0 !important;
+    }
+
+    @media (max-width: 1080px) {
+      .control-deck { grid-template-columns: 1fr; }
+      .upload-zone { min-height: 128px; border-inline-end: 0; border-bottom: 1px solid var(--line); }
+      .workspace { grid-template-columns: minmax(0, 1fr) 300px; }
+      .gallery-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 820px) {
+      .app-header { align-items: flex-start; padding: 27px 18px 19px; }
+      .privacy-note { display: none; }
+      main { padding-inline: 14px; }
+      .settings-line { grid-template-columns: 1fr; gap: 16px; }
+      .custom-group { min-width: 0; }
+      .workspace { grid-template-columns: 1fr; }
+      .inspector { position: static; order: -1; }
+      .inspector-empty { display: none; }
+      .inspector:has(.inspector-empty) { display: none; }
+    }
+
+    @media (max-width: 560px) {
+      h1 { font-size: 1.72rem; }
+      .header-copy p { font-size: 0.86rem; }
+      .stage-ruler { font-size: 0.62rem; }
+      .upload-zone { align-items: flex-start; padding: 19px 16px; }
+      .upload-icon { width: 44px; height: 44px; border-radius: 12px; }
+      .global-settings { padding: 19px 16px 17px; }
+      .section-heading { display: block; }
+      .section-heading p { margin-top: 4px; }
+      .preset-row { grid-template-columns: repeat(3, 1fr); }
+      .number-row { flex-wrap: wrap; }
+      .number-field { flex: 1 1 27%; }
+      .apply-custom { flex: 1 0 100%; }
+      .gallery-head { align-items: flex-start; padding: 14px; }
+      .scope-summary { display: block; margin-top: 3px; }
+      .gallery-actions .clear-label { display: none; }
+      .gallery-grid { padding: 10px; gap: 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+
+    html.is-embedded,
+    html.is-embedded body {
+      background: transparent;
+    }
+
+    html.is-embedded body {
+      min-height: 0;
+    }
+
+    html.is-embedded .app-header {
+      max-width: none;
+      padding: 24px 24px 18px;
+      align-items: center;
+    }
+
+    html.is-embedded .header-copy h1 {
+      font-size: 1.375rem;
+      letter-spacing: 0;
+    }
+
+    html.is-embedded main {
+      max-width: none;
+      padding: 0 24px 28px;
+    }
+
+    html.is-embedded .top-deck,
+    html.is-embedded .gallery-area,
+    html.is-embedded .inspector {
+      box-shadow: 0 8px 24px rgb(23 32 51 / 0.055);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-copy">
+      <div class="eyebrow">本地处理</div>
+      <h1>本地图片马赛克</h1>
+      <p>批量生成强、中、弱马赛克和原图合成图，可逐张调整。</p>
+    </div>
+    <div class="privacy-note" title="图片不会上传到服务器">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4.5 5v5.5c0 4.9 3.2 9.3 7.5 10.6 4.3-1.3 7.5-5.7 7.5-10.6V5L12 2Z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m8.7 11.9 2.1 2.1 4.5-4.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      图片只在本机处理
+    </div>
+  </header>
+
+  <main>
+    <section class="top-deck" aria-label="上传与全局设置">
+      <div class="stage-ruler" aria-label="输出排列：强马赛克、中马赛克、弱马赛克、留白、原图">
+        <span>强马赛克</span>
+        <span>中马赛克</span>
+        <span>弱马赛克</span>
+        <span class="gap-cell">留白</span>
+        <span class="original-cell">原图</span>
+      </div>
+
+      <div class="control-deck">
+        <div id="uploadZone" class="upload-zone">
+          <div class="upload-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v5.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="upload-copy">
+            <strong>上传人物图片</strong>
+            <p>可多选、拖放或粘贴</p>
+            <button id="chooseFilesBtn" type="button">选择图片</button>
+          </div>
+          <input id="fileInput" class="sr-only" type="file" accept="image/*" multiple>
+        </div>
+
+        <div class="global-settings">
+          <div class="section-heading">
+            <h2>全局强度</h2>
+          </div>
+          <div class="settings-line">
+            <div class="preset-group">
+              <div id="globalPresets" class="preset-row" role="group" aria-label="全局马赛克强度预设"></div>
+            </div>
+            <div class="custom-group">
+              <label class="field-label" for="globalStrong">自定义</label>
+              <div class="number-row">
+                <label class="number-field"><span>强</span><input id="globalStrong" type="number" min="3" max="160" step="1" inputmode="numeric" aria-label="全局强马赛克块大小"></label>
+                <label class="number-field"><span>中</span><input id="globalMedium" type="number" min="3" max="160" step="1" inputmode="numeric" aria-label="全局中马赛克块大小"></label>
+                <label class="number-field"><span>弱</span><input id="globalWeak" type="number" min="3" max="160" step="1" inputmode="numeric" aria-label="全局弱马赛克块大小"></label>
+                <button id="applyGlobalCustom" class="secondary apply-custom" type="button">应用</button>
+              </div>
+              <p id="globalError" class="field-error" role="alert"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section id="galleryArea" class="gallery-area" aria-labelledby="galleryTitle">
+        <div class="gallery-head">
+          <div>
+            <div class="gallery-title">
+              <h2 id="galleryTitle">待处理图片</h2>
+              <span id="imageCount" class="count-badge">0 张</span>
+            </div>
+            <span id="scopeSummary" class="scope-summary">上传后会自动生成预览</span>
+          </div>
+          <div class="gallery-actions">
+            <button id="removeAllBackgroundsBtn" class="secondary" type="button" disabled>一键去除全部白底</button>
+            <button id="restoreAllBackgroundsBtn" class="quiet" type="button" disabled>全部恢复原图</button>
+            <button id="downloadAllBtn" type="button" disabled>下载全部 ZIP</button>
+            <button id="clearAllBtn" class="quiet danger" type="button" disabled><span class="clear-label">清空</span> ×</button>
+          </div>
+        </div>
+        <div id="galleryContent"></div>
+      </section>
+
+      <aside id="inspector" class="inspector" aria-label="单张图片设置"></aside>
+    </div>
+  </main>
+
+  <div id="progressStrip" class="progress-strip" role="status" aria-live="polite">
+    <div class="progress-copy"><strong id="progressLabel">正在处理</strong><span id="progressPercent">0%</span></div>
+    <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const CANVAS_WIDTH = 1440;
+      const CANVAS_HEIGHT = 810;
+      const COLUMN_WIDTH = CANVAS_WIDTH / 9;
+      const PANEL_WIDTH = COLUMN_WIDTH * 2;
+      const PANEL_PADDING = 16;
+      const BASE_BLOCK_SIZES = Object.freeze([44, 22, 11]);
+      const STRENGTH_SCALES = Object.freeze([0.85, 1, 1.2, 1.45, 1.75, 2.15]);
+      const STRENGTH_LABELS = Object.freeze(["最弱", "较弱", "稍弱", "标准", "较强", "最强"]);
+      const PANEL_START_COLUMNS = Object.freeze([0, 2, 4, 7]);
+      const MIN_BLOCK_SIZE = 3;
+      const MAX_BLOCK_SIZE = 160;
+      const CUTOUT_MAX_EDGE = 1600;
+      const WHITE_BG_TOLERANCE = 72;
+
+      const embedded = new URLSearchParams(location.search).get("embedded") === "1";
+      if (embedded) {
+        document.documentElement.classList.add("is-embedded");
+        const reportHeight = () => parent.postMessage({ type: "manual-mosaic-height", height: document.documentElement.scrollHeight }, location.origin);
+        new ResizeObserver(reportHeight).observe(document.body);
+        window.addEventListener("load", reportHeight, { once: true });
+      }
+
+      const state = {
+        items: [],
+        selectedId: null,
+        globalSettings: makePresetSettings(4),
+        nextId: 1,
+        batchId: 0,
+        busy: false,
+      };
+
+      const el = {
+        uploadZone: document.getElementById("uploadZone"),
+        chooseFilesBtn: document.getElementById("chooseFilesBtn"),
+        fileInput: document.getElementById("fileInput"),
+        globalPresets: document.getElementById("globalPresets"),
+        globalStrong: document.getElementById("globalStrong"),
+        globalMedium: document.getElementById("globalMedium"),
+        globalWeak: document.getElementById("globalWeak"),
+        applyGlobalCustom: document.getElementById("applyGlobalCustom"),
+        globalError: document.getElementById("globalError"),
+        imageCount: document.getElementById("imageCount"),
+        scopeSummary: document.getElementById("scopeSummary"),
+        galleryContent: document.getElementById("galleryContent"),
+        inspector: document.getElementById("inspector"),
+        removeAllBackgroundsBtn: document.getElementById("removeAllBackgroundsBtn"),
+        restoreAllBackgroundsBtn: document.getElementById("restoreAllBackgroundsBtn"),
+        downloadAllBtn: document.getElementById("downloadAllBtn"),
+        clearAllBtn: document.getElementById("clearAllBtn"),
+        progressStrip: document.getElementById("progressStrip"),
+        progressLabel: document.getElementById("progressLabel"),
+        progressPercent: document.getElementById("progressPercent"),
+        progressBar: document.getElementById("progressBar"),
+        toast: document.getElementById("toast"),
+      };
+
+      let toastTimer = 0;
+
+      function getBlockSizes(strength) {
+        const normalized = Math.max(1, Math.min(6, Math.round(Number(strength) || 4)));
+        const scale = STRENGTH_SCALES[normalized - 1];
+        return BASE_BLOCK_SIZES.map(size => Math.max(MIN_BLOCK_SIZE, Math.round(size * scale)));
+      }
+
+      function makePresetSettings(strength) {
+        const normalized = Math.max(1, Math.min(6, Math.round(Number(strength) || 4)));
+        return { mode: "preset", strength: normalized, blockSizes: getBlockSizes(normalized) };
+      }
+
+      function makeCustomSettings(sizes) {
+        return { mode: "custom", strength: null, blockSizes: sizes.map(Number) };
+      }
+
+      function cloneSettings(settings) {
+        return {
+          mode: settings.mode,
+          strength: settings.strength,
+          blockSizes: [...settings.blockSizes],
+        };
+      }
+
+      function getEffectiveSettings(item) {
+        return item?.overrideSettings || state.globalSettings;
+      }
+
+      function validateBlockSizes(values) {
+        const sizes = values.map(value => Math.round(Number(value)));
+        if (sizes.some(value => !Number.isFinite(value) || value < MIN_BLOCK_SIZE || value > MAX_BLOCK_SIZE)) {
+          return { ok: false, message: `块大小应为 ${MIN_BLOCK_SIZE}–${MAX_BLOCK_SIZE} 的整数` };
+        }
+        if (!(sizes[0] > sizes[1] && sizes[1] > sizes[2])) {
+          return { ok: false, message: "需满足：强 > 中 > 弱" };
+        }
+        return { ok: true, sizes };
+      }
+
+      function presetButtonsHtml(settings, prefix) {
+        return STRENGTH_LABELS.map((label, index) => {
+          const strength = index + 1;
+          const sizes = getBlockSizes(strength);
+          const active = settings.mode === "preset" && settings.strength === strength;
+          return `<button class="preset-button${active ? " is-active" : ""}" type="button" data-preset-scope="${prefix}" data-strength="${strength}" aria-pressed="${active}" title="${label}：${sizes.join(" / ")} px">${label}</button>`;
+        }).join("");
+      }
+
+      function renderGlobalControls() {
+        const settings = state.globalSettings;
+        el.globalPresets.innerHTML = presetButtonsHtml(settings, "global");
+        [el.globalStrong.value, el.globalMedium.value, el.globalWeak.value] = settings.blockSizes;
+      }
+
+      function renderAll() {
+        renderGlobalControls();
+        renderGallery();
+        renderInspector();
+      }
+
+      function renderGallery() {
+        const total = state.items.length;
+        const overrideCount = state.items.filter(item => item.overrideSettings).length;
+        const cutoutCount = state.items.filter(item => item.backgroundRemoved).length;
+        const readyCount = state.items.filter(item => item.outputBlob && !item.error).length;
+
+        el.imageCount.textContent = `${total} 张`;
+        el.scopeSummary.textContent = total
+          ? `${total - overrideCount} 张跟随全局 · ${overrideCount} 张单独设置 · ${cutoutCount} 张已去白底`
+          : "上传后会自动生成预览";
+        el.downloadAllBtn.disabled = !readyCount || state.busy;
+        el.downloadAllBtn.textContent = total > 1 ? `下载全部 ZIP${readyCount < total ? ` (${readyCount}/${total})` : ""}` : "下载成品";
+        el.removeAllBackgroundsBtn.disabled = !total || cutoutCount === total || state.busy;
+        el.removeAllBackgroundsBtn.textContent = cutoutCount ? `去除其余白底 (${total - cutoutCount})` : "一键去除全部白底";
+        el.restoreAllBackgroundsBtn.disabled = !cutoutCount || state.busy;
+        el.clearAllBtn.disabled = !total || state.busy;
+
+        if (!total) {
+          el.galleryContent.innerHTML = `
+            <div id="emptyDropTarget" class="empty-state">
+              <div>
+                <div class="empty-illustration" aria-hidden="true"></div>
+            <h3>暂无图片</h3>
+            <p>请从上方上传，添加后会自动生成预览。</p>
+            <button type="button" data-action="choose-files">选择图片</button>
+              </div>
+            </div>`;
+          return;
+        }
+
+        el.galleryContent.innerHTML = `<div class="gallery-grid">${state.items.map(renderCard).join("")}</div>`;
+      }
+
+      function renderCard(item) {
+        const settings = getEffectiveSettings(item);
+        const isSelected = item.id === state.selectedId;
+        const imageUrl = item.outputUrl || item.sourceUrl;
+        const statusClass = item.status === "processing" ? " is-processing" : "";
+        const sizeText = `${settings.blockSizes.join(" / ")} px`;
+        const scope = item.overrideSettings ? "单独设置" : "跟随全局";
+        return `
+          <article class="image-card${isSelected ? " is-selected" : ""}${statusClass}" data-item-id="${item.id}" tabindex="0" aria-label="${escapeHtml(item.name)}，${item.backgroundRemoved ? "已去白底，" : ""}${scope}，${sizeText}">
+            <div class="preview-wrap">
+              ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(item.name)} 的三阶段马赛克预览">` : ""}
+              ${item.status === "processing" ? `<div class="processing-cover"><span>${escapeHtml(item.statusLabel || "正在重绘")}</span></div>` : ""}
+              ${item.error ? `<div class="card-error">${escapeHtml(item.error)}</div>` : ""}
+              <div class="preview-stage-labels" aria-hidden="true"><span>强</span><span>中</span><span>弱</span><span class="blank">·</span><span>原图</span></div>
+            </div>
+            <div class="card-meta">
+              <div class="file-line">
+                <span class="file-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+                <span class="badge-stack">
+                  ${item.backgroundRemoved ? `<span class="scope-badge cutout">已去白底</span>` : ""}
+                  <span class="scope-badge${item.overrideSettings ? " override" : ""}">${scope}</span>
+                </span>
+              </div>
+              <div class="card-foot">
+                <span class="size-readout">${sizeText}</span>
+                <div class="card-actions">
+                  <button class="quiet" type="button" data-action="download-item" data-id="${item.id}" ${item.outputBlob ? "" : "disabled"}>下载</button>
+                  <button class="quiet danger" type="button" data-action="remove-item" data-id="${item.id}">移除</button>
+                </div>
+              </div>
+            </div>
+          </article>`;
+      }
+
+      function renderInspector() {
+        const item = state.items.find(candidate => candidate.id === state.selectedId);
+        if (!item) {
+          el.inspector.innerHTML = `
+            <div class="inspector-head">
+              <div class="kicker">单图调整</div>
+              <h2>图片设置</h2>
+            </div>
+            <div class="inspector-empty">点击任意图片，在这里覆盖它的马赛克强度。</div>`;
+          return;
+        }
+
+        const following = !item.overrideSettings;
+        const settings = getEffectiveSettings(item);
+        el.inspector.innerHTML = `
+          <div class="inspector-head">
+            <div class="kicker">单图调整</div>
+            <h2>当前图片</h2>
+            <p class="inspector-filename" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</p>
+          </div>
+          <div class="inspector-body">
+            <div class="background-tool">
+              <div class="background-tool-head">
+                <strong>白底处理</strong>
+                <span class="background-status">${item.backgroundRemoved ? `已移除约 ${item.backgroundStats?.percent || 0}%` : "使用原图"}</span>
+              </div>
+              <p>${item.backgroundNote ? escapeHtml(item.backgroundNote) : "只识别从图片四周连通的近白区域，人物内部的白色会尽量保留。"}</p>
+              <div class="background-actions">
+                <button class="secondary" type="button" data-action="remove-bg-selected" ${item.backgroundRemoved || state.busy ? "disabled" : ""}>一键去除白底</button>
+                <button class="quiet" type="button" data-action="restore-bg-selected" ${!item.backgroundRemoved || state.busy ? "disabled" : ""}>恢复原图</button>
+              </div>
+            </div>
+            <div class="scope-switch" role="group" aria-label="当前图片设置范围">
+              <button type="button" data-scope-mode="global" class="${following ? "is-active" : ""}" aria-pressed="${following}">跟随全局</button>
+              <button type="button" data-scope-mode="individual" class="${following ? "" : "is-active"}" aria-pressed="${!following}">单独设置</button>
+            </div>
+            <p class="inspector-note">${following ? "全局强度变化时，这张图会一起重绘。" : "这张图已锁定自己的参数，不受全局调整影响。"}</p>
+            <div class="inspector-controls" aria-disabled="${following}">
+              <span class="field-label">六档预设</span>
+              <div class="preset-row" role="group" aria-label="当前图片马赛克强度预设">${presetButtonsHtml(settings, "individual")}</div>
+              <div class="custom-group">
+                <label class="field-label" for="itemStrong">自定义块大小</label>
+                <div class="number-row">
+                  <label class="number-field"><span>强</span><input id="itemStrong" type="number" min="3" max="160" step="1" value="${settings.blockSizes[0]}" inputmode="numeric" aria-label="当前图片强马赛克块大小"></label>
+                  <label class="number-field"><span>中</span><input id="itemMedium" type="number" min="3" max="160" step="1" value="${settings.blockSizes[1]}" inputmode="numeric" aria-label="当前图片中马赛克块大小"></label>
+                  <label class="number-field"><span>弱</span><input id="itemWeak" type="number" min="3" max="160" step="1" value="${settings.blockSizes[2]}" inputmode="numeric" aria-label="当前图片弱马赛克块大小"></label>
+                </div>
+                <button id="applyItemCustom" class="secondary apply-custom" type="button">应用到这张图</button>
+                <p id="itemError" class="field-error" role="alert"></p>
+              </div>
+            </div>
+            <div class="inspector-bottom">
+              <button type="button" data-action="download-selected" ${item.outputBlob ? "" : "disabled"}>下载这张</button>
+              <button class="quiet danger" type="button" data-action="remove-selected">移除</button>
+            </div>
+          </div>`;
+      }
+
+      function selectItem(id) {
+        if (!state.items.some(item => item.id === id)) return;
+        state.selectedId = id;
+        renderGallery();
+        renderInspector();
+      }
+
+      function setGlobalPreset(strength) {
+        state.globalSettings = makePresetSettings(strength);
+        el.globalError.textContent = "";
+        renderAll();
+        const ids = state.items.filter(item => !item.overrideSettings).map(item => item.id);
+        startRender(ids, `正在应用全局强度：${STRENGTH_LABELS[strength - 1]}`);
+      }
+
+      function applyGlobalCustom() {
+        const result = validateBlockSizes([el.globalStrong.value, el.globalMedium.value, el.globalWeak.value]);
+        if (!result.ok) {
+          el.globalError.textContent = result.message;
+          return;
+        }
+        el.globalError.textContent = "";
+        state.globalSettings = makeCustomSettings(result.sizes);
+        renderAll();
+        const ids = state.items.filter(item => !item.overrideSettings).map(item => item.id);
+        startRender(ids, "正在应用全局自定义强度");
+      }
+
+      function setItemScope(mode) {
+        const item = state.items.find(candidate => candidate.id === state.selectedId);
+        if (!item) return;
+        if (mode === "individual" && !item.overrideSettings) {
+          item.overrideSettings = cloneSettings(state.globalSettings);
+          renderGallery();
+          renderInspector();
+          showToast("已切换为单独设置，全局调整不会再影响这张图");
+          return;
+        }
+        if (mode === "global" && item.overrideSettings) {
+          item.overrideSettings = null;
+          renderGallery();
+          renderInspector();
+          startRender([item.id], "正在恢复全局强度");
+        }
+      }
+
+      function setItemPreset(strength) {
+        const item = state.items.find(candidate => candidate.id === state.selectedId);
+        if (!item) return;
+        item.overrideSettings = makePresetSettings(strength);
+        renderGallery();
+        renderInspector();
+        startRender([item.id], `正在单独调整：${item.name}`);
+      }
+
+      function applyItemCustom() {
+        const item = state.items.find(candidate => candidate.id === state.selectedId);
+        if (!item) return;
+        const errorEl = document.getElementById("itemError");
+        const result = validateBlockSizes([
+          document.getElementById("itemStrong")?.value,
+          document.getElementById("itemMedium")?.value,
+          document.getElementById("itemWeak")?.value,
+        ]);
+        if (!result.ok) {
+          if (errorEl) errorEl.textContent = result.message;
+          return;
+        }
+        item.overrideSettings = makeCustomSettings(result.sizes);
+        renderGallery();
+        renderInspector();
+        startRender([item.id], `正在单独调整：${item.name}`);
+      }
+
+      async function addFiles(fileList) {
+        const files = [...fileList].filter(file => file.type.startsWith("image/"));
+        const skipped = fileList.length - files.length;
+        if (!files.length) {
+          showToast("没有找到可读取的图片文件", true);
+          return;
+        }
+
+        setProgress(true, "正在读取本地图片", 0);
+        const addedIds = [];
+        let failed = 0;
+
+        for (let index = 0; index < files.length; index++) {
+          const file = files[index];
+          try {
+            const decoded = await decodeImage(file);
+            const item = {
+              id: state.nextId++,
+              file,
+              name: file.name || `image-${state.nextId}.jpg`,
+              sourceUrl: URL.createObjectURL(file),
+              decoded,
+              width: decoded.width,
+              height: decoded.height,
+              overrideSettings: null,
+              cutoutCanvas: null,
+              backgroundRemoved: false,
+              backgroundStats: null,
+              backgroundNote: "",
+              outputBlob: null,
+              outputUrl: "",
+              status: "queued",
+              statusLabel: "",
+              error: "",
+              renderToken: 0,
+            };
+            state.items.push(item);
+            addedIds.push(item.id);
+            if (state.selectedId == null) state.selectedId = item.id;
+          } catch (error) {
+            failed++;
+            console.warn("图片读取失败", file.name, error);
+          }
+          setProgress(true, `正在读取本地图片 ${index + 1}/${files.length}`, Math.round(((index + 1) / files.length) * 24));
+        }
+
+        el.fileInput.value = "";
+        renderAll();
+        if (addedIds.length) await startRender(addedIds, `正在生成 ${addedIds.length} 张三阶段马赛克`);
+        const notes = [];
+        if (addedIds.length) notes.push(`已添加 ${addedIds.length} 张`);
+        if (failed) notes.push(`${failed} 张读取失败`);
+        if (skipped) notes.push(`${skipped} 个非图片文件已跳过`);
+        showToast(notes.join("，"), Boolean(failed));
+      }
+
+      async function decodeImage(blob) {
+        if (typeof createImageBitmap === "function") {
+          try {
+            const bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
+            return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+          } catch {
+            const bitmap = await createImageBitmap(blob);
+            return { source: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close() };
+          }
+        }
+
+        const objectUrl = URL.createObjectURL(blob);
+        try {
+          const image = await new Promise((resolve, reject) => {
+            const node = new Image();
+            node.onload = () => resolve(node);
+            node.onerror = () => reject(new Error("图片解码失败"));
+            node.src = objectUrl;
+          });
+          return {
+            source: image,
+            width: image.naturalWidth,
+            height: image.naturalHeight,
+            close: () => URL.revokeObjectURL(objectUrl),
+          };
+        } catch (error) {
+          URL.revokeObjectURL(objectUrl);
+          throw error;
+        }
+      }
+
+      async function removeWhiteBackgrounds(ids) {
+        const items = [...new Set(ids)]
+          .map(id => state.items.find(item => item.id === id))
+          .filter(item => item && !item.backgroundRemoved);
+        if (!items.length || state.busy) return;
+
+        const jobId = ++state.batchId;
+        state.busy = true;
+        renderGallery();
+        renderInspector();
+        setProgress(true, `正在识别 ${items.length} 张图片的白底`, 2);
+        const changedIds = [];
+        let failed = 0;
+
+        for (let index = 0; index < items.length; index++) {
+          if (jobId !== state.batchId) return;
+          const item = items[index];
+          item.status = "processing";
+          item.statusLabel = "正在识别白底";
+          item.backgroundNote = "";
+          renderGallery();
+          if (item.id === state.selectedId) renderInspector();
+          await nextFrame();
+
+          try {
+            const result = createWhiteBackgroundCutout(item.decoded);
+            item.cutoutCanvas = result.canvas;
+            item.backgroundRemoved = true;
+            item.backgroundStats = result.stats;
+            item.backgroundNote = `边缘背景取样：rgb(${result.stats.background.join(", ")})`;
+            changedIds.push(item.id);
+          } catch (error) {
+            failed++;
+            item.backgroundNote = error?.message || "白底识别失败";
+          }
+          item.status = item.outputBlob ? "ready" : "queued";
+          item.statusLabel = "";
+          const percent = 4 + Math.round(((index + 1) / items.length) * 54);
+          setProgress(true, `正在识别白底 ${index + 1}/${items.length}`, percent);
+          renderGallery();
+          if (item.id === state.selectedId) renderInspector();
+        }
+
+        state.busy = false;
+        renderGallery();
+        renderInspector();
+        if (changedIds.length) {
+          await startRender(changedIds, `正在用透明人物重绘 ${changedIds.length} 张图片`);
+        } else {
+          setProgress(false);
+        }
+        const message = failed
+          ? `已去除 ${changedIds.length} 张白底，${failed} 张未检测到合适白底`
+          : `已去除 ${changedIds.length} 张白底`;
+        showToast(message, Boolean(failed && !changedIds.length));
+      }
+
+      function restoreBackgrounds(ids) {
+        if (state.busy) return;
+        const items = [...new Set(ids)]
+          .map(id => state.items.find(item => item.id === id))
+          .filter(item => item?.backgroundRemoved);
+        if (!items.length) return;
+        for (const item of items) {
+          item.cutoutCanvas = null;
+          item.backgroundRemoved = false;
+          item.backgroundStats = null;
+          item.backgroundNote = "";
+        }
+        renderGallery();
+        renderInspector();
+        void startRender(items.map(item => item.id), `正在恢复 ${items.length} 张原图`);
+      }
+
+      function createWhiteBackgroundCutout(decoded) {
+        if (!decoded?.source || !(decoded.width > 0) || !(decoded.height > 0)) {
+          throw new Error("图片尺寸无效，无法识别白底");
+        }
+        const scale = Math.min(1, CUTOUT_MAX_EDGE / Math.max(decoded.width, decoded.height));
+        const width = Math.max(1, Math.round(decoded.width * scale));
+        const height = Math.max(1, Math.round(decoded.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: true });
+        if (!ctx) throw new Error("浏览器无法创建抠图画布");
+        ctx.clearRect(0, 0, width, height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(decoded.source, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const stats = removeConnectedLightBackground(imageData.data, width, height, WHITE_BG_TOLERANCE);
+        if (stats.percent < 2) throw new Error("没有检测到明显的连通白底");
+        if (stats.percent > 94) throw new Error("识别范围过大，已保留原图以避免误删人物");
+        ctx.putImageData(imageData, 0, 0);
+        return { canvas, stats };
+      }
+
+      function removeConnectedLightBackground(data, width, height, tolerance) {
+        const background = sampleBorderBackground(data, width, height);
+        if (!background) throw new Error("图片边缘不是白色或近白色背景");
+        const total = width * height;
+        const marks = new Uint8Array(total);
+        const queue = new Int32Array(total);
+        let head = 0;
+        let tail = 0;
+        const backgroundLuminance = 0.2126 * background[0] + 0.7152 * background[1] + 0.0722 * background[2];
+        const minimumLuminance = Math.max(168, backgroundLuminance - tolerance * 1.12);
+
+        const tryAdd = index => {
+          if (marks[index]) return;
+          marks[index] = 1;
+          const offset = index * 4;
+          if (data[offset + 3] < 16) {
+            marks[index] = 2;
+            queue[tail++] = index;
+            return;
+          }
+          const red = data[offset];
+          const green = data[offset + 1];
+          const blue = data[offset + 2];
+          const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+          const redDelta = red - background[0];
+          const greenDelta = green - background[1];
+          const blueDelta = blue - background[2];
+          const distance = Math.sqrt((redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta) / 3);
+          if (luminance >= minimumLuminance && distance <= tolerance) {
+            marks[index] = 2;
+            queue[tail++] = index;
+          }
+        };
+
+        for (let x = 0; x < width; x++) {
+          tryAdd(x);
+          tryAdd((height - 1) * width + x);
+        }
+        for (let y = 1; y < height - 1; y++) {
+          tryAdd(y * width);
+          tryAdd(y * width + width - 1);
+        }
+
+        while (head < tail) {
+          const index = queue[head++];
+          const x = index % width;
+          if (x > 0) tryAdd(index - 1);
+          if (x + 1 < width) tryAdd(index + 1);
+          if (index >= width) tryAdd(index - width);
+          if (index + width < total) tryAdd(index + width);
+        }
+
+        let removedWeight = 0;
+        const featherStart = 7;
+        const featherRange = Math.max(1, tolerance - featherStart);
+        for (let index = 0; index < total; index++) {
+          if (marks[index] !== 2) continue;
+          const offset = index * 4;
+          const redDelta = data[offset] - background[0];
+          const greenDelta = data[offset + 1] - background[1];
+          const blueDelta = data[offset + 2] - background[2];
+          const distance = Math.sqrt((redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta) / 3);
+          const alpha = distance <= featherStart
+            ? 0
+            : Math.min(255, Math.round(((distance - featherStart) / featherRange) * 255));
+          data[offset + 3] = alpha;
+          removedWeight += 1 - alpha / 255;
+        }
+
+        return {
+          background,
+          percent: Math.round((removedWeight / total) * 100),
+          connectedPixels: tail,
+        };
+      }
+
+      function sampleBorderBackground(data, width, height) {
+        const samples = [];
+        let transparentCount = 0;
+        const pushSample = index => {
+          const offset = index * 4;
+          const alpha = data[offset + 3];
+          if (alpha < 32) {
+            transparentCount++;
+            return;
+          }
+          const red = data[offset];
+          const green = data[offset + 1];
+          const blue = data[offset + 2];
+          const minimum = Math.min(red, green, blue);
+          const maximum = Math.max(red, green, blue);
+          if (minimum >= 198 && maximum - minimum <= 42) samples.push([red, green, blue]);
+        };
+        const xStep = Math.max(1, Math.floor(width / 80));
+        const yStep = Math.max(1, Math.floor(height / 80));
+        for (let x = 0; x < width; x += xStep) {
+          pushSample(x);
+          pushSample((height - 1) * width + x);
+        }
+        for (let y = yStep; y < height - yStep; y += yStep) {
+          pushSample(y * width);
+          pushSample(y * width + width - 1);
+        }
+        if (samples.length < 8) {
+          if (transparentCount >= 8) throw new Error("图片边缘已经透明，无需去除白底");
+          return null;
+        }
+        const median = channel => {
+          const values = samples.map(sample => sample[channel]).sort((a, b) => a - b);
+          return values[Math.floor(values.length / 2)];
+        };
+        return [median(0), median(1), median(2)];
+      }
+
+      async function startRender(ids, label) {
+        const uniqueIds = [...new Set(ids)].filter(id => state.items.some(item => item.id === id));
+        if (!uniqueIds.length) {
+          setProgress(false);
+          return;
+        }
+
+        const batchId = ++state.batchId;
+        for (const item of state.items) {
+          if (item.status !== "processing") continue;
+          item.renderToken++;
+          item.status = item.outputBlob ? "ready" : "queued";
+          item.statusLabel = "";
+        }
+        const renderEntries = uniqueIds.map(id => {
+          const item = state.items.find(candidate => candidate.id === id);
+          item.renderToken++;
+          item.status = "processing";
+          item.statusLabel = "正在重绘";
+          item.error = "";
+          return { id, token: item.renderToken };
+        });
+        state.busy = true;
+        renderGallery();
+        setProgress(true, label, 3);
+
+        for (let index = 0; index < renderEntries.length; index++) {
+          if (batchId !== state.batchId) return;
+          const entry = renderEntries[index];
+          const item = state.items.find(candidate => candidate.id === entry.id);
+          if (!item) continue;
+          try {
+            const blob = await composeMosaic(getDrawableSource(item), getEffectiveSettings(item).blockSizes);
+            if (!state.items.includes(item) || entry.token !== item.renderToken) continue;
+            if (item.outputUrl) URL.revokeObjectURL(item.outputUrl);
+            item.outputBlob = blob;
+            item.outputUrl = URL.createObjectURL(blob);
+            item.status = "ready";
+            item.statusLabel = "";
+            item.error = "";
+          } catch (error) {
+            if (entry.token !== item.renderToken) continue;
+            item.status = "error";
+            item.statusLabel = "";
+            item.error = error?.message || "生成失败";
+          }
+          const percent = Math.round(((index + 1) / renderEntries.length) * 100);
+          setProgress(true, `${label} (${index + 1}/${renderEntries.length})`, percent);
+          renderGallery();
+          if (item.id === state.selectedId) renderInspector();
+        }
+
+        if (batchId === state.batchId) {
+          state.busy = false;
+          renderGallery();
+          renderInspector();
+          window.setTimeout(() => {
+            if (batchId === state.batchId) setProgress(false);
+          }, 650);
+        }
+      }
+
+      function getDrawableSource(item) {
+        if (item.backgroundRemoved && item.cutoutCanvas) {
+          return {
+            source: item.cutoutCanvas,
+            width: item.cutoutCanvas.width,
+            height: item.cutoutCanvas.height,
+          };
+        }
+        return item.decoded;
+      }
+
+      async function composeMosaic(decoded, blockSizes) {
+        if (!decoded?.source || !(decoded.width > 0) || !(decoded.height > 0)) {
+          throw new Error("图片尺寸无效");
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = CANVAS_WIDTH;
+        canvas.height = CANVAS_HEIGHT;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        if (!ctx) throw new Error("浏览器无法创建输出画布");
+        ctx.fillStyle = "rgb(255 255 255)";
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        for (let index = 0; index < 3; index++) {
+          const panel = getPanelRect(index);
+          const destination = calculateContainRect(decoded.width, decoded.height, panel);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(panel.x, panel.y, panel.width, panel.height);
+          ctx.clip();
+          drawPixelated(ctx, decoded.source, destination, blockSizes[index]);
+          ctx.restore();
+        }
+
+        const originalPanel = getPanelRect(3);
+        const originalDestination = calculateContainRect(decoded.width, decoded.height, originalPanel);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(originalPanel.x, originalPanel.y, originalPanel.width, originalPanel.height);
+        ctx.clip();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(decoded.source, originalDestination.x, originalDestination.y, originalDestination.width, originalDestination.height);
+        ctx.restore();
+
+        return canvasToBlob(canvas, "image/jpeg", 0.92);
+      }
+
+      function getPanelRect(index) {
+        const safeIndex = Math.max(0, Math.min(3, Math.round(Number(index) || 0)));
+        return { x: PANEL_START_COLUMNS[safeIndex] * COLUMN_WIDTH, y: 0, width: PANEL_WIDTH, height: CANVAS_HEIGHT };
+      }
+
+      function calculateContainRect(sourceWidth, sourceHeight, panel) {
+        const availableWidth = panel.width - PANEL_PADDING * 2;
+        const availableHeight = panel.height - PANEL_PADDING * 2;
+        const scale = Math.min(availableWidth / sourceWidth, availableHeight / sourceHeight);
+        const width = sourceWidth * scale;
+        const height = sourceHeight * scale;
+        return {
+          x: panel.x + PANEL_PADDING + (availableWidth - width) / 2,
+          y: panel.y + PANEL_PADDING + (availableHeight - height) / 2,
+          width,
+          height,
+        };
+      }
+
+      function drawPixelated(ctx, image, destination, blockSize) {
+        const sampleWidth = Math.max(1, Math.round(destination.width / blockSize));
+        const sampleHeight = Math.max(1, Math.round(destination.height / blockSize));
+        const sample = document.createElement("canvas");
+        sample.width = sampleWidth;
+        sample.height = sampleHeight;
+        const sampleCtx = sample.getContext("2d", { alpha: true });
+        if (!sampleCtx) throw new Error("浏览器无法创建马赛克画布");
+        sampleCtx.clearRect(0, 0, sampleWidth, sampleHeight);
+        sampleCtx.imageSmoothingEnabled = true;
+        sampleCtx.imageSmoothingQuality = "high";
+        sampleCtx.drawImage(image, 0, 0, sampleWidth, sampleHeight);
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sample, 0, 0, sampleWidth, sampleHeight, destination.x, destination.y, destination.width, destination.height);
+        ctx.restore();
+      }
+
+      function canvasToBlob(canvas, type, quality) {
+        return new Promise((resolve, reject) => {
+          canvas.toBlob(blob => blob?.size ? resolve(blob) : reject(new Error("图片导出失败")), type, quality);
+        });
+      }
+
+      function removeItem(id) {
+        const index = state.items.findIndex(item => item.id === id);
+        if (index < 0) return;
+        const [item] = state.items.splice(index, 1);
+        disposeItem(item);
+        if (state.selectedId === id) {
+          state.selectedId = state.items[index]?.id || state.items[index - 1]?.id || null;
+        }
+        renderGallery();
+        renderInspector();
+      }
+
+      function clearAll() {
+        state.batchId++;
+        state.busy = false;
+        state.items.forEach(disposeItem);
+        state.items = [];
+        state.selectedId = null;
+        setProgress(false);
+        renderAll();
+        showToast("已清空当前图片");
+      }
+
+      function disposeItem(item) {
+        item.renderToken++;
+        item.decoded?.close?.();
+        item.cutoutCanvas = null;
+        if (item.sourceUrl) URL.revokeObjectURL(item.sourceUrl);
+        if (item.outputUrl) URL.revokeObjectURL(item.outputUrl);
+      }
+
+      function downloadItem(item) {
+        if (!item?.outputBlob) return;
+        downloadBlob(item.outputBlob, makeOutputFilename(item.name));
+        showToast(`已下载：${makeOutputFilename(item.name)}`);
+      }
+
+      async function downloadAll() {
+        const readyItems = state.items.filter(item => item.outputBlob && !item.error);
+        if (!readyItems.length) return;
+        if (readyItems.length === 1) {
+          downloadItem(readyItems[0]);
+          return;
+        }
+
+        setProgress(true, `正在打包 ${readyItems.length} 张图片`, 15);
+        await nextFrame();
+        const folderName = `三阶段马赛克-${timestamp()}`;
+        const files = [];
+        for (let index = 0; index < readyItems.length; index++) {
+          const item = readyItems[index];
+          const data = new Uint8Array(await item.outputBlob.arrayBuffer());
+          const numbered = `${String(index + 1).padStart(3, "0")}-${makeOutputFilename(item.name)}`;
+          files.push({ name: `${folderName}/${numbered}`, data });
+          setProgress(true, `正在整理图片 ${index + 1}/${readyItems.length}`, 15 + Math.round(((index + 1) / readyItems.length) * 58));
+        }
+        await nextFrame();
+        setProgress(true, "正在生成 ZIP", 88);
+        const zip = createZipBlob(files);
+        downloadBlob(zip, `${folderName}.zip`);
+        setProgress(true, "ZIP 已生成", 100);
+        window.setTimeout(() => setProgress(false), 800);
+        showToast(`已打包 ${readyItems.length} 张成品`);
+      }
+
+      function makeOutputFilename(name) {
+        const withoutExtension = String(name || "image").replace(/\.[^.]+$/, "");
+        const safe = withoutExtension.normalize("NFKC").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/[. ]+$/g, "").trim().slice(0, 86) || "image";
+        return `${safe}-三阶段马赛克.jpg`;
+      }
+
+      function timestamp() {
+        const now = new Date();
+        return [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, "0"),
+          String(now.getDate()).padStart(2, "0"),
+          "-",
+          String(now.getHours()).padStart(2, "0"),
+          String(now.getMinutes()).padStart(2, "0"),
+          String(now.getSeconds()).padStart(2, "0"),
+        ].join("");
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+
+      function createZipBlob(files) {
+        const chunks = [];
+        const centralChunks = [];
+        let offset = 0;
+        const { date, time } = getZipDateTime(new Date());
+        for (const file of files) {
+          const nameBytes = new TextEncoder().encode(file.name.replace(/\\/g, "/"));
+          const crc = crc32(file.data);
+          const localHeader = createZipLocalHeader(nameBytes, file.data.length, crc, date, time);
+          const centralHeader = createZipCentralHeader(nameBytes, file.data.length, crc, offset, date, time);
+          chunks.push(localHeader, nameBytes, file.data);
+          centralChunks.push(centralHeader, nameBytes);
+          offset += localHeader.length + nameBytes.length + file.data.length;
+        }
+        const centralSize = centralChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        const endRecord = createZipEndRecord(files.length, centralSize, offset);
+        return new Blob([...chunks, ...centralChunks, endRecord], { type: "application/zip" });
+      }
+
+      function createZipLocalHeader(nameBytes, size, crc, date, time) {
+        const header = new Uint8Array(30);
+        const view = new DataView(header.buffer);
+        view.setUint32(0, 0x04034b50, true);
+        view.setUint16(4, 20, true);
+        view.setUint16(6, 0x0800, true);
+        view.setUint16(8, 0, true);
+        view.setUint16(10, time, true);
+        view.setUint16(12, date, true);
+        view.setUint32(14, crc, true);
+        view.setUint32(18, size, true);
+        view.setUint32(22, size, true);
+        view.setUint16(26, nameBytes.length, true);
+        return header;
+      }
+
+      function createZipCentralHeader(nameBytes, size, crc, offset, date, time) {
+        const header = new Uint8Array(46);
+        const view = new DataView(header.buffer);
+        view.setUint32(0, 0x02014b50, true);
+        view.setUint16(4, 20, true);
+        view.setUint16(6, 20, true);
+        view.setUint16(8, 0x0800, true);
+        view.setUint16(10, 0, true);
+        view.setUint16(12, time, true);
+        view.setUint16(14, date, true);
+        view.setUint32(16, crc, true);
+        view.setUint32(20, size, true);
+        view.setUint32(24, size, true);
+        view.setUint16(28, nameBytes.length, true);
+        view.setUint32(42, offset, true);
+        return header;
+      }
+
+      function createZipEndRecord(fileCount, centralSize, centralOffset) {
+        const header = new Uint8Array(22);
+        const view = new DataView(header.buffer);
+        view.setUint32(0, 0x06054b50, true);
+        view.setUint16(8, fileCount, true);
+        view.setUint16(10, fileCount, true);
+        view.setUint32(12, centralSize, true);
+        view.setUint32(16, centralOffset, true);
+        return header;
+      }
+
+      function getZipDateTime(value) {
+        const year = Math.max(1980, value.getFullYear());
+        return {
+          date: ((year - 1980) << 9) | ((value.getMonth() + 1) << 5) | value.getDate(),
+          time: (value.getHours() << 11) | (value.getMinutes() << 5) | Math.floor(value.getSeconds() / 2),
+        };
+      }
+
+      function crc32(data) {
+        const table = getCrc32Table();
+        let crc = 0xffffffff;
+        for (let index = 0; index < data.length; index++) {
+          crc = (crc >>> 8) ^ table[(crc ^ data[index]) & 0xff];
+        }
+        return (crc ^ 0xffffffff) >>> 0;
+      }
+
+      function getCrc32Table() {
+        if (getCrc32Table.table) return getCrc32Table.table;
+        const table = new Uint32Array(256);
+        for (let index = 0; index < 256; index++) {
+          let value = index;
+          for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+          table[index] = value >>> 0;
+        }
+        getCrc32Table.table = table;
+        return table;
+      }
+
+      function setProgress(visible, label = "", percent = 0) {
+        el.progressStrip.classList.toggle("is-visible", visible);
+        if (!visible) return;
+        const value = Math.max(0, Math.min(100, Number(percent) || 0));
+        el.progressLabel.textContent = label;
+        el.progressPercent.textContent = `${Math.round(value)}%`;
+        el.progressBar.style.width = `${value}%`;
+      }
+
+      function showToast(message, error = false) {
+        window.clearTimeout(toastTimer);
+        el.toast.textContent = message;
+        el.toast.classList.toggle("is-error", error);
+        el.toast.classList.add("is-visible");
+        toastTimer = window.setTimeout(() => el.toast.classList.remove("is-visible"), 2600);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[character]));
+      }
+
+      function nextFrame() {
+        return new Promise(resolve => requestAnimationFrame(() => resolve()));
+      }
+
+      function handleFiles(files) {
+        if (files?.length) void addFiles(files);
+      }
+
+      el.chooseFilesBtn.addEventListener("click", () => el.fileInput.click());
+      el.fileInput.addEventListener("change", event => handleFiles(event.target.files));
+      el.applyGlobalCustom.addEventListener("click", applyGlobalCustom);
+      el.removeAllBackgroundsBtn.addEventListener("click", () => {
+        void removeWhiteBackgrounds(state.items.filter(item => !item.backgroundRemoved).map(item => item.id));
+      });
+      el.restoreAllBackgroundsBtn.addEventListener("click", () => {
+        restoreBackgrounds(state.items.filter(item => item.backgroundRemoved).map(item => item.id));
+      });
+      el.downloadAllBtn.addEventListener("click", () => void downloadAll());
+      el.clearAllBtn.addEventListener("click", clearAll);
+
+      el.globalPresets.addEventListener("click", event => {
+        const button = event.target.closest("[data-strength]");
+        if (button) setGlobalPreset(Number(button.dataset.strength));
+      });
+
+      el.galleryContent.addEventListener("click", event => {
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (action === "choose-files") return el.fileInput.click();
+        const actionButton = event.target.closest("[data-action]");
+        if (actionButton?.dataset.id) {
+          event.stopPropagation();
+          const id = Number(actionButton.dataset.id);
+          if (action === "download-item") downloadItem(state.items.find(item => item.id === id));
+          if (action === "remove-item") removeItem(id);
+          return;
+        }
+        const card = event.target.closest("[data-item-id]");
+        if (card) selectItem(Number(card.dataset.itemId));
+      });
+
+      el.galleryContent.addEventListener("keydown", event => {
+        if (event.target.closest("button")) return;
+        const card = event.target.closest("[data-item-id]");
+        if (card && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          selectItem(Number(card.dataset.itemId));
+        }
+      });
+
+      el.inspector.addEventListener("click", event => {
+        const scopeButton = event.target.closest("[data-scope-mode]");
+        if (scopeButton) return setItemScope(scopeButton.dataset.scopeMode);
+        const presetButton = event.target.closest('[data-preset-scope="individual"]');
+        if (presetButton) return setItemPreset(Number(presetButton.dataset.strength));
+        if (event.target.closest("#applyItemCustom")) return applyItemCustom();
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        const item = state.items.find(candidate => candidate.id === state.selectedId);
+        if (action === "remove-bg-selected" && item) void removeWhiteBackgrounds([item.id]);
+        if (action === "restore-bg-selected" && item) restoreBackgrounds([item.id]);
+        if (action === "download-selected") downloadItem(item);
+        if (action === "remove-selected" && item) removeItem(item.id);
+      });
+
+      [el.uploadZone, el.galleryContent].forEach(target => {
+        target.addEventListener("dragenter", event => {
+          event.preventDefault();
+          el.uploadZone.classList.add("is-dragging");
+        });
+        target.addEventListener("dragover", event => {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        });
+        target.addEventListener("dragleave", event => {
+          if (!target.contains(event.relatedTarget)) el.uploadZone.classList.remove("is-dragging");
+        });
+        target.addEventListener("drop", event => {
+          event.preventDefault();
+          el.uploadZone.classList.remove("is-dragging");
+          handleFiles(event.dataTransfer?.files);
+        });
+      });
+
+      window.addEventListener("paste", event => {
+        const files = [...(event.clipboardData?.files || [])].filter(file => file.type.startsWith("image/"));
+        if (files.length) handleFiles(files);
+      });
+
+      window.addEventListener("beforeunload", () => state.items.forEach(disposeItem));
+
+      renderAll();
+    })();
+  </script>
+</body>
+</html>

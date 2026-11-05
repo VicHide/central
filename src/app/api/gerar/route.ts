@@ -16,6 +16,7 @@ export async function POST(req: Request) {
 
   const args = ["tsx", "src/core/gerar.ts", "--modo", modo, "--n", String(n), "--cortes", String(cortes)];
   if (seed !== undefined) args.push("--seed", String(seed));
+  if (b.musica === false) args.push("--sem-musica");
   if (b.render === true) args.push("--render");
   const job = iniciaJob(`Quiz de ${n} animes · ${modo === "zoom" ? "zoom e revelação" : "4 imagens"}`, args, {
     n, render: b.render === true, duracaoSeg: estimaDuracao(modo, n, cortes), preparo: "Sorteio, imagens e cortes",
