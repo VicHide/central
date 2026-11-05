@@ -31,3 +31,7 @@ public/musica/
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Arquivos locais do FanCaps
+FanCaps-Downloader/downloads/
+
