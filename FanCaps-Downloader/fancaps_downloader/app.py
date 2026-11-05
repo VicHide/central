@@ -49,6 +49,8 @@ class FanCapsApp(ctk.CTk):
         self.worker = None
         self.download_worker = None
         self.download_active = False
+        self.download_paused = False
+        self.download_pause_event = threading.Event()
         self.download_queue = []
         self.download_queue_keys = set()
 
@@ -152,13 +154,22 @@ class FanCapsApp(ctk.CTk):
         )
         self.queue_start_button.grid(row=0, column=2, padx=6, pady=10)
 
+        self.queue_pause_button = ctk.CTkButton(
+            toolbar,
+            text="Pausar fila",
+            command=self._toggle_download_pause,
+            width=105,
+            state="disabled"
+        )
+        self.queue_pause_button.grid(row=0, column=3, padx=6, pady=10)
+
         self.queue_clear_button = ctk.CTkButton(
             toolbar,
             text="Limpar fila",
             command=self._clear_download_queue,
             width=100
         )
-        self.queue_clear_button.grid(row=0, column=3, padx=6, pady=10)
+        self.queue_clear_button.grid(row=0, column=4, padx=6, pady=10)
 
         content = ctk.CTkFrame(tab, fg_color="transparent")
         content.grid(
@@ -581,7 +592,7 @@ class FanCapsApp(ctk.CTk):
                 )
             ).pack(side="right", padx=6, pady=5)
 
-            if ep.source == "explicit" and ep.image_ids:
+            if ep.download_image_count > 0:
                 queue_key = (anime.id, ep.number)
                 already_queued = queue_key in self.download_queue_keys
                 queue_button = ctk.CTkButton(
@@ -623,7 +634,7 @@ class FanCapsApp(ctk.CTk):
             )
             return
 
-        if episode.source != "explicit" or not episode.image_ids:
+        if episode.download_image_count <= 0:
             return
 
         key = (anime.id, episode.number)
@@ -641,7 +652,10 @@ class FanCapsApp(ctk.CTk):
 
     def _update_queue_controls(self):
         episode_count = len(self.download_queue)
-        image_count = sum(len(item[1].image_ids) for item in self.download_queue)
+        image_count = sum(
+            item[1].download_image_count
+            for item in self.download_queue
+        )
 
         self.queue_start_button.configure(
             text=f"Iniciar fila ({episode_count})",
@@ -649,6 +663,10 @@ class FanCapsApp(ctk.CTk):
         )
         self.queue_clear_button.configure(
             state="normal" if episode_count and not self.download_active else "disabled"
+        )
+        self.queue_pause_button.configure(
+            text="Retomar fila" if self.download_paused else "Pausar fila",
+            state="normal" if self.download_active else "disabled"
         )
 
         names = [
@@ -675,6 +693,23 @@ class FanCapsApp(ctk.CTk):
                 )
             )
 
+    def _toggle_download_pause(self):
+        if not self.download_active:
+            return
+
+        self.download_paused = not self.download_paused
+
+        if self.download_paused:
+            self.download_pause_event.set()
+            self.queue_pause_button.configure(text="Retomar fila")
+            self.download_status.configure(
+                text="Fila pausada. A requisição atual será concluída antes da pausa."
+            )
+        else:
+            self.download_pause_event.clear()
+            self.queue_pause_button.configure(text="Pausar fila")
+            self.download_status.configure(text="Retomando fila...")
+
     def _clear_download_queue(self):
         if self.download_active:
             return
@@ -691,7 +726,10 @@ class FanCapsApp(ctk.CTk):
             return
 
         episode_count = len(self.download_queue)
-        image_count = sum(len(item[1].image_ids) for item in self.download_queue)
+        image_count = sum(
+            item[1].download_image_count
+            for item in self.download_queue
+        )
 
         if not messagebox.askyesno(
             "Iniciar fila",
@@ -706,6 +744,8 @@ class FanCapsApp(ctk.CTk):
             return
 
         queue_snapshot = list(self.download_queue)
+        self.download_paused = False
+        self.download_pause_event.clear()
         self.download_active = True
         self.queue_start_button.configure(state="disabled")
         self.queue_clear_button.configure(state="disabled")
@@ -721,7 +761,10 @@ class FanCapsApp(ctk.CTk):
 
     def _download_queue_worker(self, episodes):
         downloader = ImageDownloader(self.database)
-        total_images = sum(len(episode.image_ids) for _, episode, _ in episodes)
+        total_images = sum(
+            episode.download_image_count
+            for _, episode, _ in episodes
+        )
         processed = 0
         downloaded = 0
         skipped = 0
@@ -731,7 +774,10 @@ class FanCapsApp(ctk.CTk):
             for episode_index, (anime, episode, folder) in enumerate(episodes, start=1):
                 folder.mkdir(parents=True, exist_ok=True)
 
-                for image_id in episode.image_ids:
+                for image_id in episode.iter_download_ids():
+                    while self.download_pause_event.is_set():
+                        time.sleep(0.2)
+
                     destination = folder / f"{image_id}.jpg"
                     result = downloader.download_one(
                         image_id=image_id,
@@ -1504,6 +1550,9 @@ class FanCapsApp(ctk.CTk):
                     self.download_progress.set(current / max(1, total))
                     self.download_status.configure(
                         text=(
+                            "Fila pausada • " if self.download_pause_event.is_set()
+                            else ""
+                        ) + (
                             f"Episódio {episode_index}/{episode_total}: "
                             f"{anime_title} / {episode_title} • "
                             f"Imagem {current}/{total} • "
@@ -1521,6 +1570,12 @@ class FanCapsApp(ctk.CTk):
                         _, reason, downloaded, skipped, errors, episodes = event
 
                     self.download_active = False
+                    self.download_paused = False
+                    self.download_pause_event.clear()
+                    self.queue_pause_button.configure(
+                        text="Pausar fila",
+                        state="disabled"
+                    )
                     self.download_queue.clear()
                     self.download_queue_keys.clear()
 
