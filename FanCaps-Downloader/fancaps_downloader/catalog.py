@@ -27,6 +27,27 @@ class Episode:
         )
 
     @property
+    def download_image_count(self) -> int:
+        if self.image_ids:
+            return len(self.image_ids)
+
+        if self.has_interval:
+            return self.last_image_id - self.first_image_id + 1
+
+        return 0
+
+    def iter_download_ids(self):
+        if self.image_ids:
+            yield from self.image_ids
+            return
+
+        if self.has_interval:
+            yield from range(
+                self.first_image_id,
+                self.last_image_id + 1
+            )
+
+    @property
     def title(self) -> str:
         if self.number.isdigit():
             return f"Episode {self.number}"
