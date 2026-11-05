@@ -355,6 +355,22 @@ class FanCapsApp(ctk.CTk):
             sticky="ew"
         )
 
+        self.queue_items_label = ctk.CTkLabel(
+            bottom,
+            text="Episódios na fila: nenhum",
+            text_color="gray",
+            anchor="w",
+            justify="left",
+            wraplength=650
+        )
+        self.queue_items_label.grid(
+            row=4,
+            column=0,
+            padx=5,
+            pady=(0, 5),
+            sticky="ew"
+        )
+
         self.catalog_status = ctk.CTkLabel(
             tab,
             text="Pronto",
@@ -633,6 +649,21 @@ class FanCapsApp(ctk.CTk):
         )
         self.queue_clear_button.configure(
             state="normal" if episode_count and not self.download_active else "disabled"
+        )
+
+        names = [
+            f"{anime.title} / {episode.title}"
+            for anime, episode, _folder in self.download_queue
+        ]
+        visible_names = names[:5]
+        if len(names) > 5:
+            visible_names.append(f"... e mais {len(names) - 5} episódios")
+
+        self.queue_items_label.configure(
+            text=(
+                "Episódios na fila: " + " | ".join(visible_names)
+                if visible_names else "Episódios na fila: nenhum"
+            )
         )
 
         if not self.download_active:
