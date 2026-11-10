@@ -680,6 +680,16 @@
       background: var(--soft);
     }
 
+    .local-acervo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+    .local-acervo-card { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); text-align: left; cursor: pointer; }
+    .local-acervo-card img { width: 100%; aspect-ratio: 16 / 10; object-fit: contain; border-radius: 6px; background: var(--soft); }
+    .local-acervo-card span { overflow-wrap: anywhere; font-size: var(--text-xs); }
+    .local-acervo-card.selected { border-color: var(--selected); background: var(--selected-wash); }
+    .local-acervo-controls { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; gap: 10px; align-items: end; }
+    .local-acervo-controls label { display: grid; gap: 5px; color: var(--muted); font-size: var(--text-sm); }
+    .local-acervo-controls select, .local-acervo-controls input { width: 100%; }
+    @media (max-width: 680px) { .local-acervo-controls { grid-template-columns: 1fr; } }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
@@ -3154,8 +3164,25 @@
       <button id="autoSourceFanCapsBtn" class="auto-source-option active" type="button" aria-pressed="true" aria-controls="modePanel autoPanel searchPanel" onclick="setAutoImageSource('fancaps')">FanCaps 截图</button>
       <button id="autoSourceBangumiCoverBtn" class="auto-source-option" type="button" aria-pressed="false" aria-controls="autoPanel" onclick="setAutoImageSource('bangumi-cover')">Bangumi 封面</button>
       <button id="autoSourceBangumiCharacterBtn" class="auto-source-option" type="button" aria-pressed="false" aria-controls="autoPanel" onclick="setAutoImageSource('bangumi-character-mosaic')">马赛克人物题</button>
+      <button id="autoSourceLocalAcervoBtn" class="auto-source-option" type="button" aria-pressed="false" aria-controls="localAcervoPanel" onclick="openLocalAcervo()">Acervo local</button>
     </div>
   </div>
+
+  <section id="localAcervoPanel" class="panel" style="display: none;" aria-label="Imagens baixadas no acervo">
+    <h2>Imagens baixadas</h2>
+    <p class="workflow-note">Escolha uma pasta do acervo para visualizar e selecionar imagens que já estão no computador.</p>
+    <div class="local-acervo-controls">
+      <label for="localAcervoAnime">Anime
+        <select id="localAcervoAnime"><option value="">Carregando pastas...</option></select>
+      </label>
+      <label for="localAcervoSearch">Filtrar imagens
+        <input id="localAcervoSearch" type="search" placeholder="Nome do arquivo..." />
+      </label>
+      <button type="button" class="light" onclick="loadLocalAcervoImages()">Atualizar</button>
+    </div>
+    <p id="localAcervoStatus" class="status" role="status" aria-live="polite">Carregando pastas do acervo...</p>
+    <div id="localAcervoGrid" class="local-acervo-grid"></div>
+  </section>
 
   <div id="modePanel" class="panel mode-panel" role="group" aria-label="出题方式" aria-describedby="modePrompt">
     <button id="autoModeBtn" class="mode-button active" type="button" aria-pressed="true" aria-controls="autoPanel" onclick="switchMode('auto')">自动出题</button>
@@ -3406,6 +3433,13 @@
     const autoSourceBangumiCoverBtn = document.getElementById("autoSourceBangumiCoverBtn");
     const autoSourceBangumiCharacterBtn = document.getElementById("autoSourceBangumiCharacterBtn");
     const manualMosaicPanelEl = document.getElementById("manualMosaicPanel");
+    const localAcervoPanelEl = document.getElementById("localAcervoPanel");
+    const localAcervoAnimeEl = document.getElementById("localAcervoAnime");
+    const localAcervoSearchEl = document.getElementById("localAcervoSearch");
+    const localAcervoGridEl = document.getElementById("localAcervoGrid");
+    const localAcervoStatusEl = document.getElementById("localAcervoStatus");
+    let localAcervoFiles = [];
+    let localAcervoLoadedAnime = "";
 
     let selectedImages = new Map();
     let imageItemsById = new Map();
@@ -3455,6 +3489,89 @@
     window.addEventListener("scroll", updateFloatingNavVisibility, { passive: true });
     window.addEventListener("resize", updateFloatingNavVisibility);
 
+
+    async function openLocalAcervo() {
+      document.querySelectorAll(".auto-source-option").forEach(button => {
+        button.classList.remove("active");
+        button.setAttribute("aria-pressed", "false");
+      });
+      const button = document.getElementById("autoSourceLocalAcervoBtn");
+      button?.classList.add("active");
+      button?.setAttribute("aria-pressed", "true");
+      autoPanelEl.style.display = "none";
+      modePanelEl.style.display = "none";
+      searchPanelEl.style.display = "none";
+      manualMosaicPanelEl.style.display = "none";
+      [bangumiResultsEl, subjectDetailEl, fanCapsResultsEl, imagePanelEl].forEach(hideElement);
+      showElement(localAcervoPanelEl);
+      setStatus("Modo de seleção do acervo local");
+      if (!localAcervoAnimeEl.options.length || !localAcervoAnimeEl.value) await loadLocalAcervoFolders();
+      else if (localAcervoLoadedAnime !== localAcervoAnimeEl.value) await loadLocalAcervoImages();
+      scrollToElement(localAcervoPanelEl);
+    }
+
+    async function loadLocalAcervoFolders() {
+      localAcervoStatusEl.textContent = "Lendo pastas do acervo...";
+      try {
+        const response = await fetch("/api/acervo", { cache: "no-store" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+        const folders = (data.animes || []).filter(item => item.imagens > 0).sort((a,b) => a.pasta.localeCompare(b.pasta, "pt-BR"));
+        localAcervoAnimeEl.innerHTML = folders.length
+          ? '<option value="">Selecione um anime (' + folders.length + ' pastas)</option>' + folders.map(item => '<option value="' + escapeHtml(item.pasta) + '">' + escapeHtml(item.pasta) + ' · ' + item.imagens + ' imagens</option>').join("")
+          : '<option value="">Nenhuma pasta com imagens</option>';
+        localAcervoStatusEl.textContent = folders.length ? folders.length + " pastas encontradas. Selecione uma para carregar as imagens." : "Não encontrei imagens em acervo/. Confira se os downloads estão nessa pasta.";
+      } catch (error) {
+        localAcervoStatusEl.textContent = "Não foi possível ler o acervo: " + error.message;
+      }
+    }
+
+    async function loadLocalAcervoImages() {
+      const anime = localAcervoAnimeEl.value;
+      if (!anime) {
+        localAcervoGridEl.innerHTML = "";
+        localAcervoStatusEl.textContent = "Selecione uma pasta de anime.";
+        return;
+      }
+      localAcervoStatusEl.textContent = "Carregando imagens...";
+      localAcervoGridEl.innerHTML = "";
+      try {
+        const response = await fetch("/api/acervo/imagens?anime=" + encodeURIComponent(anime), { cache: "no-store" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+        localAcervoFiles = data.imagens || [];
+        localAcervoLoadedAnime = anime;
+        renderLocalAcervoImages();
+      } catch (error) {
+        localAcervoStatusEl.textContent = "Erro ao carregar imagens: " + error.message;
+      }
+    }
+
+    function renderLocalAcervoImages() {
+      const query = localAcervoSearchEl.value.trim().toLocaleLowerCase("pt-BR");
+      const items = localAcervoFiles.filter(item => item.nome.toLocaleLowerCase("pt-BR").includes(query));
+      localAcervoStatusEl.textContent = items.length + " de " + localAcervoFiles.length + " imagens · " + selectedImages.size + " selecionadas no total";
+      localAcervoGridEl.innerHTML = items.map(item => {
+        const id = "acervo_" + hashString(localAcervoLoadedAnime + "/" + item.nome);
+        const selected = selectedImages.has(id);
+        return '<button type="button" class="local-acervo-card' + (selected ? " selected" : "") + '" aria-pressed="' + selected + '" onclick="toggleLocalAcervoImage(\'' + escapeJsString(id) + '\',\'' + escapeJsString(item.url) + '\',\'' + escapeJsString(localAcervoLoadedAnime) + '\',\'' + escapeJsString(item.nome) + '\')"><img src="' + escapeHtml(item.url) + '" alt="" loading="lazy" /><span>' + escapeHtml(item.nome) + (selected ? " · Selecionada" : "") + "</span></button>";
+      }).join("") || '<p class="empty">Nenhuma imagem corresponde ao filtro.</p>';
+    }
+
+    function toggleLocalAcervoImage(id, url, anime, filename) {
+      if (selectedImages.has(id)) {
+        selectedImages.delete(id);
+        setStatus("Imagem removida da seleção: " + filename);
+      } else {
+        selectedImages.set(id, { id, episodeTitle: filename, thumbUrl: url, originalUrl: url, picturePageUrl: "", sourcePage: "acervo", labelText: anime, kind: "local" });
+        setStatus("Imagem adicionada: " + filename);
+      }
+      renderSelectedBasket();
+      renderLocalAcervoImages();
+    }
+
+    localAcervoAnimeEl.addEventListener("change", loadLocalAcervoImages);
+    localAcervoSearchEl.addEventListener("input", renderLocalAcervoImages);
 
     function switchMode(mode, options = {}) {
       const source = getAutoImageSource();
