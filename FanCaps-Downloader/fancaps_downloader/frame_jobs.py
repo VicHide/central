@@ -100,23 +100,24 @@ class FrameAnalysisService:
             raise ValueError("A exclusão precisa ser confirmada.")
         folder = self._folder(anime)
 
+        # Mantém a análise bloqueada durante a exclusão para evitar corrida.
         with self.lock:
             if self.state["status"] != "completed" or self.state["anime"] != anime:
                 raise RuntimeError("Faça uma análise concluída dessa pasta antes de excluir.")
+
             discarded = list(self.state["discarded"])
             selected = set(self.state["selected"])
+            deleted = []
 
-        deleted = []
-        for name in discarded:
-            if not isinstance(name, str) or name in selected or Path(name).name != name:
-                continue
-            target = (folder / name).resolve()
-            if target.parent != folder or not target.is_file():
-                continue
-            target.unlink()
-            deleted.append(name)
+            for name in discarded:
+                if not isinstance(name, str) or name in selected or Path(name).name != name:
+                    continue
+                target = (folder / name).resolve()
+                if target.parent != folder or not target.is_file():
+                    continue
+                target.unlink()
+                deleted.append(name)
 
-        with self.lock:
             self.state["discarded"] = []
             self.state["deleted_count"] += len(deleted)
             self.state["total"] = len(self.state["selected"])
