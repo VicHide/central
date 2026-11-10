@@ -9,6 +9,7 @@ from .catalog import Catalog, CatalogError
 from .config import DATASET_PATH, DOWNLOAD_DIR, DATABASE_PATH
 from .database import DownloadDatabase
 from .downloader import DownloadBlocked, ImageDownloader
+from .frame_jobs import FrameAnalysisService
 
 
 HOST = "127.0.0.1"
@@ -274,6 +275,8 @@ class QueueService:
                 }
 
 
+frame_service = FrameAnalysisService()
+
 try:
     service = QueueService()
     startup_error = None
@@ -316,6 +319,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(service.episodes(int(query.get("anime_id", ["0"])[0])))
             if parsed.path == "/queue":
                 return self.send_json(service.snapshot())
+            if parsed.path == "/frames":
+                return self.send_json(frame_service.snapshot())
             return self.send_json({"erro": "Rota não encontrada."}, 404)
         except (ValueError, TypeError) as exc:
             return self.send_json({"erro": str(exc)}, 400)
@@ -335,6 +340,12 @@ class Handler(BaseHTTPRequestHandler):
                 result = service.resume()
             elif self.path == "/clear":
                 result = service.clear()
+            elif self.path == "/frames/analyze":
+                body = self.read_json()
+                result = frame_service.start(body.get("anime"), body.get("threshold", 4))
+            elif self.path == "/frames/delete":
+                body = self.read_json()
+                result = frame_service.delete_discarded(body.get("anime"), body.get("confirmed") is True)
             else:
                 return self.send_json({"erro": "Rota não encontrada."}, 404)
             return self.send_json(result)
