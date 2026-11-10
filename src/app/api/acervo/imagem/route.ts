@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     return new Response("Imagem não encontrada.", { status: 404 });
   }
 
-  return new Response(fs.readFileSync(target), {
+  return new Response(new Uint8Array(fs.readFileSync(target)), {
     headers: {
       "Content-Type": TYPES[path.extname(target).toLowerCase()] || "application/octet-stream",
       "Cache-Control": "private, max-age=300",
