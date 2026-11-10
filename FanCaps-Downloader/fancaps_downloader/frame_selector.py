@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 import imagehash
 from PIL import Image, ImageOps
@@ -46,7 +47,7 @@ class FrameSelector:
                 if path.is_file()
                 and path.suffix.lower() in SUPPORTED_FORMATS
             ],
-            key=lambda path: path.name.casefold()
+            key=lambda path: [int(part) if part.isdigit() else part for part in re.split(r"(\\d+)", path.name.casefold())]
         )
 
     @staticmethod
