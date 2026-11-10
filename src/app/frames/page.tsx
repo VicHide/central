@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type AnimeFolder = { pasta: string; imagens: number; usadas: number };
 type Snapshot = {
