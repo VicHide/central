@@ -3574,6 +3574,7 @@
     localAcervoSearchEl.addEventListener("input", renderLocalAcervoImages);
 
     function switchMode(mode, options = {}) {
+      hideElement(localAcervoPanelEl);
       const source = getAutoImageSource();
       const supportsManual = source === AUTO_SOURCE_FANCAPS || source === AUTO_SOURCE_CHARACTER_MOSAIC;
       const isAuto = mode !== "manual" || !supportsManual;
