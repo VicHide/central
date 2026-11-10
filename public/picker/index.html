@@ -3554,7 +3554,7 @@
       localAcervoGridEl.innerHTML = items.map(item => {
         const id = "acervo_" + hashString(localAcervoLoadedAnime + "/" + item.nome);
         const selected = selectedImages.has(id);
-        return '<button type="button" class="local-acervo-card' + (selected ? " selected" : "") + '" aria-pressed="' + selected + '" onclick="toggleLocalAcervoImage(\'' + escapeJsString(id) + '\',\'' + escapeJsString(item.url) + '\',\'' + escapeJsString(localAcervoLoadedAnime) + '\',\'' + escapeJsString(item.nome) + '\')"><img src="' + escapeHtml(item.url) + '" alt="" loading="lazy" /><span>' + escapeHtml(item.nome) + (selected ? " · Selecionada" : "") + "</span></button>";
+        return '<button type="button" class="local-acervo-card' + (selected ? " selected" : "") + '" aria-pressed="' + selected + '" data-acervo-id="' + escapeHtml(id) + '" data-acervo-url="' + escapeHtml(item.url) + '" data-acervo-anime="' + escapeHtml(localAcervoLoadedAnime) + '" data-acervo-filename="' + escapeHtml(item.nome) + '"><img src="' + escapeHtml(item.url) + '" alt="" loading="lazy" /><span>' + escapeHtml(item.nome) + (selected ? " · Selecionada" : "") + "</span></button>";
       }).join("") || '<p class="empty">Nenhuma imagem corresponde ao filtro.</p>';
     }
 
@@ -3572,6 +3572,11 @@
 
     localAcervoAnimeEl.addEventListener("change", loadLocalAcervoImages);
     localAcervoSearchEl.addEventListener("input", renderLocalAcervoImages);
+    localAcervoGridEl.addEventListener("click", event => {
+      const card = event.target.closest(".local-acervo-card");
+      if (!card) return;
+      toggleLocalAcervoImage(card.dataset.acervoId, card.dataset.acervoUrl, card.dataset.acervoAnime, card.dataset.acervoFilename);
+    });
 
     function switchMode(mode, options = {}) {
       hideElement(localAcervoPanelEl);
