@@ -47,7 +47,7 @@ class FrameSelector:
                 if path.is_file()
                 and path.suffix.lower() in SUPPORTED_FORMATS
             ],
-            key=lambda path: [int(part) if part.isdigit() else part for part in re.split(r"(\\d+)", path.name.casefold())]
+            key=lambda path: [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path.name.casefold())]
         )
 
     @staticmethod
