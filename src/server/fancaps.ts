@@ -25,7 +25,7 @@ async function readHealth(): Promise<Health | null> {
   }
 }
 
-function validateHealth(health: Health) {
+function validateHealth(health: Health, requireCatalog = true) {
   if (!health.project_root || !health.download_dir) {
     throw new Error("A API FanCaps que está na porta 8765 é de uma versão antiga ou de outro diretório. Encerre essa instância e reinicie o Next.js para iniciar a API correta.");
   }
@@ -35,17 +35,17 @@ function validateHealth(health: Health) {
   if (normalizePath(health.download_dir) !== normalizePath(expectedDownloadDir)) {
     throw new Error(`O FanCaps está gravando em ${health.download_dir}, mas o acervo do Next está em ${expectedDownloadDir}.`);
   }
-  if (!health.catalog_ready) {
+  if (requireCatalog && !health.catalog_ready) {
     throw new Error(health.error || "A API iniciou, mas não conseguiu carregar o catálogo do FanCaps.");
   }
 }
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export async function ensureFanCapsApi() {
+export async function ensureFanCapsApi(requireCatalog = true) {
   const existing = await readHealth();
   if (existing) {
-    validateHealth(existing);
+    validateHealth(existing, requireCatalog);
     return;
   }
 
@@ -73,7 +73,7 @@ export async function ensureFanCapsApi() {
       for (let attempt = 0; attempt < 30; attempt++) {
         const health = await readHealth();
         if (health) {
-          validateHealth(health);
+          validateHealth(health, requireCatalog);
           return;
         }
         if (child.exitCode !== null) break;
@@ -86,7 +86,7 @@ export async function ensureFanCapsApi() {
 }
 
 export async function callFanCapsApi(pathname: string, method: "GET" | "POST", body?: unknown) {
-  await ensureFanCapsApi();
+  await ensureFanCapsApi(!pathname.startsWith("/frames"));
   const response = await fetch(apiBase + pathname, {
     method, cache: "no-store",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
