@@ -310,6 +310,8 @@ class Handler(BaseHTTPRequestHandler):
         query = parse_qs(parsed.query)
         if parsed.path == "/health":
             return self.send_json({"ok": True, "catalog_ready": service is not None, "error": startup_error, "project_root": str(Path(__file__).resolve().parents[1]), "download_dir": str(DOWNLOAD_DIR.resolve())})
+        if parsed.path == "/frames":
+            return self.send_json(frame_service.snapshot())
         if service is None:
             return self.send_json({"erro": startup_error or "Serviço indisponível."}, 503)
         try:
@@ -319,13 +321,27 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(service.episodes(int(query.get("anime_id", ["0"])[0])))
             if parsed.path == "/queue":
                 return self.send_json(service.snapshot())
-            if parsed.path == "/frames":
-                return self.send_json(frame_service.snapshot())
             return self.send_json({"erro": "Rota não encontrada."}, 404)
         except (ValueError, TypeError) as exc:
             return self.send_json({"erro": str(exc)}, 400)
 
     def do_POST(self):
+        if self.path == "/frames/analyze":
+            try:
+                body = self.read_json()
+                return self.send_json(frame_service.start(body.get("anime"), body.get("threshold", 4)))
+            except RuntimeError as exc:
+                return self.send_json({"erro": str(exc)}, 409)
+            except (ValueError, TypeError, json.JSONDecodeError) as exc:
+                return self.send_json({"erro": str(exc)}, 400)
+        if self.path == "/frames/delete":
+            try:
+                body = self.read_json()
+                return self.send_json(frame_service.delete_discarded(body.get("anime"), body.get("confirmed") is True))
+            except RuntimeError as exc:
+                return self.send_json({"erro": str(exc)}, 409)
+            except (ValueError, TypeError, json.JSONDecodeError) as exc:
+                return self.send_json({"erro": str(exc)}, 400)
         if service is None:
             return self.send_json({"erro": startup_error or "Serviço indisponível."}, 503)
         try:
@@ -340,12 +356,6 @@ class Handler(BaseHTTPRequestHandler):
                 result = service.resume()
             elif self.path == "/clear":
                 result = service.clear()
-            elif self.path == "/frames/analyze":
-                body = self.read_json()
-                result = frame_service.start(body.get("anime"), body.get("threshold", 4))
-            elif self.path == "/frames/delete":
-                body = self.read_json()
-                result = frame_service.delete_discarded(body.get("anime"), body.get("confirmed") is True)
             else:
                 return self.send_json({"erro": "Rota não encontrada."}, 404)
             return self.send_json(result)
