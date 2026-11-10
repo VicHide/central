@@ -3612,7 +3612,7 @@
     function setAutoImageSource(source) {
       if (autoGenerating) return;
       const next = normalizeAutoImageSource(source);
-      if (!autoImageSourceEl || autoImageSourceEl.value === next) return;
+      if (!autoImageSourceEl || (autoImageSourceEl.value === next && localAcervoPanelEl.style.display === "none")) return;
       autoImageSourceEl.value = next;
       syncAutoImageSourceButtons();
       syncQuestionSourceFlow();
