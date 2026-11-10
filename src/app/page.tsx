@@ -110,6 +110,7 @@ export default function Page() {
           <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
           <a className="nav-link" href="/picker">Seletor de imagens</a>
+          <a className="nav-link" href="/frames">Detector de frames</a>
         </nav>
         <div className="sidebar-note"><span className="note-mark" aria-hidden="true" /><p>Um zoom.<br />Uma revelação.</p></div>
       </aside>
