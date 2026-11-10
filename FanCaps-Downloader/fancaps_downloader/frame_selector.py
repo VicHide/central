@@ -61,6 +61,7 @@ class FrameSelector:
         images: list[Path],
         mode: str = "best",
         interval: int = 3,
+        progress_callback=None,
     ) -> FrameSelectionResult:
 
         images = list(images)
@@ -99,7 +100,7 @@ class FrameSelector:
         discarded = []
         previous_hash = None
 
-        for path in images:
+        for index, path in enumerate(images, start=1):
             try:
                 current_hash = self.calculate_hash(path)
 
@@ -121,6 +122,9 @@ class FrameSelector:
             else:
                 selected.append(path)
                 previous_hash = current_hash
+
+            if progress_callback:
+                progress_callback(index, total)
 
         return FrameSelectionResult(
             selected=selected,
