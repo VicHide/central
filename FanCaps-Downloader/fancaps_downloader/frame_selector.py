@@ -103,28 +103,24 @@ class FrameSelector:
         for index, path in enumerate(images, start=1):
             try:
                 current_hash = self.calculate_hash(path)
-
             except (OSError, ValueError):
                 # Preserva imagens que não puderam ser analisadas.
                 selected.append(path)
                 previous_hash = None
-                continue
-
-            if previous_hash is None:
-                selected.append(path)
-                previous_hash = current_hash
-                continue
-
-            distance = previous_hash - current_hash
-
-            if distance <= self.threshold:
-                discarded.append(path)
             else:
-                selected.append(path)
-                previous_hash = current_hash
-
-            if progress_callback:
-                progress_callback(index, total)
+                if previous_hash is None:
+                    selected.append(path)
+                    previous_hash = current_hash
+                else:
+                    distance = previous_hash - current_hash
+                    if distance <= self.threshold:
+                        discarded.append(path)
+                    else:
+                        selected.append(path)
+                        previous_hash = current_hash
+            finally:
+                if progress_callback:
+                    progress_callback(index, total)
 
         return FrameSelectionResult(
             selected=selected,
