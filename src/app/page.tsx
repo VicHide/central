@@ -58,6 +58,10 @@ export default function Page() {
   const [acervo, setAcervo] = useState<Acervo>({ animes: [], promos: 0 });
   const [saidas, setSaidas] = useState<Saida[]>([]);
   const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false, musicas: 0 });
+  const [tipoTags, setTipoTags] = useState<"quiz" | "top">("top");
+  const [tags, setTags] = useState("");
+  const [tagsMsg, setTagsMsg] = useState("");
+  const [tagsLoading, setTagsLoading] = useState(false);
 
   const carrega = async () => {
     try {
@@ -89,6 +93,21 @@ export default function Page() {
     setTMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
     carrega();
   };
+  const gerarTags = async () => {
+    setTagsLoading(true); setTagsMsg(""); setTags("");
+    try {
+      const r = await fetch("/api/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo: tipoTags }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível gerar as tags.");
+      setTags(d.tags); setTagsMsg(`${d.quantidade} tags · ${d.caracteres}/500 caracteres`);
+    } catch (e) { setTagsMsg(e instanceof Error ? e.message : "Erro ao gerar tags."); }
+    finally { setTagsLoading(false); }
+  };
+  const copiarTags = async () => {
+    try { await navigator.clipboard.writeText(tags); setTagsMsg("Tags copiadas para a área de transferência."); }
+    catch { setTagsMsg("Não foi possível copiar automaticamente. Selecione e copie o texto."); }
+  };
+
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
     setTimeout(() => window.open(d.url, "_blank"), 2500);
@@ -252,6 +271,29 @@ export default function Page() {
                 <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
               </table>
             )}
+          </section>
+
+          <section className="composer" id="tags" style={{ marginTop: 14 }}>
+            <div className="section-head"><div><h2>Tags para YouTube</h2><p>Gera tags com base nos animes, gêneros e informações do último projeto produzido.</p></div><span className="step-label">Publicação</span></div>
+            <div className="form-body" style={{ marginTop: 20 }}>
+              <div className="fields">
+                <label>Tipo de vídeo
+                  <select value={tipoTags} onChange={(e) => { setTipoTags(e.target.value as "quiz" | "top"); setTags(""); setTagsMsg(""); }}>
+                    <option value="top">Top 10 / Top Short</option>
+                    <option value="quiz">Quiz de animes (zoom ou 4 imagens)</option>
+                  </select>
+                </label>
+              </div>
+              <div className="form-footer">
+                <p className="helper">As tags são sugeridas a partir dos dados já gerados. Confira antes de publicar; o painel não envia nada ao YouTube.</p>
+                <div className="actions"><button className="primary" onClick={gerarTags} disabled={tagsLoading}>{tagsLoading ? "Gerando…" : "Gerar tags"}</button></div>
+              </div>
+              {tags && <label>Tags (separadas por vírgula)
+                <textarea value={tags} readOnly rows={4} style={{ width: "100%", resize: "vertical" }} />
+              </label>}
+              {tags && <div className="actions"><button className="secondary" onClick={copiarTags}>Copiar tags</button></div>}
+              {tagsMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{tagsMsg}</p>}
+            </div>
           </section>
 
           <section className="jobs-section" id="saidas">
