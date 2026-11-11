@@ -20,7 +20,7 @@ function persisteJobs() {
   try {
     fs.mkdirSync(path.dirname(arquivoJobs), { recursive: true });
     const temporario = arquivoJobs + ".tmp";
-    fs.writeFileSync(temporario, JSON.stringify(jobs.slice(-100), null, 2) + "\\n", "utf8");
+    fs.writeFileSync(temporario, JSON.stringify(jobs.slice(-100), null, 2) + "\n", "utf8");
     fs.renameSync(temporario, arquivoJobs);
   } catch (e) { console.error("Não foi possível salvar o histórico de produção:", e); }
 }
