@@ -395,6 +395,12 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/queue":
                 body = self.read_json()
                 result = service.add(int(body.get("anime_id", 0)), str(body.get("episode_number", "")))
+            elif self.path == "/remove":
+                body = self.read_json()
+                result = service.remove(str(body.get("key", "")))
+            elif self.path == "/move":
+                body = self.read_json()
+                result = service.move(str(body.get("key", "")), str(body.get("direction", "")))
             elif self.path == "/start":
                 result = service.start()
             elif self.path == "/pause":
