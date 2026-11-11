@@ -191,3 +191,12 @@ details.avancado summary{cursor:pointer;color:var(--muted);font-size:12px}
 .music-empty p{margin:5px 0 0;color:var(--faint);font-size:11px}
 @media(max-width:760px){.music-library{padding:18px}.music-fields{grid-template-columns:1fr 1fr}.music-form-footer{align-items:stretch;flex-direction:column}.music-form-footer .primary{width:100%}.music-track{grid-template-columns:32px minmax(0,1fr) auto}.music-track-actions{grid-column:2/-1;justify-content:flex-end}.music-status{grid-column:3;grid-row:1}}
 @media(max-width:460px){.music-fields{grid-template-columns:1fr}.music-credit{grid-column:auto}.music-heading{align-items:flex-start}.music-total strong{font-size:22px}}
+
+
+/* Ajustes dos campos da biblioteca de músicas */
+.music-form .music-fields input,.music-form .music-fields textarea { min-height:40px; border:1px solid #c5ccc4; border-radius:8px; background:#fff; color:var(--text); font:inherit; font-size:12px; transition:border-color .15s ease,box-shadow .15s ease; }
+.music-form .music-fields input:focus,.music-form .music-fields textarea:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px rgba(118,82,56,.12); }
+.music-form input[type="file"] { display:block; width:100%; margin-top:7px; padding:9px; border:1px dashed #b9c1b9; border-radius:8px; background:#fff; color:var(--muted); font-size:11px; }
+.music-form input[type="file"]::file-selector-button { margin-right:10px; padding:7px 11px; border:1px solid var(--border); border-radius:6px; background:#edf0eb; color:var(--text); font:inherit; font-size:11px; cursor:pointer; }
+.music-form input[type="file"]::file-selector-button:hover { background:#e2e8e0; }
+.music-form .music-credit textarea { min-height:72px; }
