@@ -271,8 +271,6 @@ export default function Page() {
                 {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
               </div>
             </section>
-
-    </aside>
           </div>
 
           <section className="composer" id="top" style={{ marginTop: 14 }}>
