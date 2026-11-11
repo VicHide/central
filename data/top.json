@@ -1,150 +1,166 @@
 {
-  "titulo": "TOP 10 ANIMES DE EXEMPLO",
-  "subtitulo": "melhor avaliados",
-  "fonte": "Dados e capas: AniList",
+  "titulo": "TOP 10 ANIMES DE ISEKAI",
+  "subtitulo": "2026 · Finalizados · melhor avaliados",
   "itens": [
     {
       "rank": 1,
-      "titulo": "Título de exemplo 1",
-      "nota": 88,
+      "titulo": "Re:ZERO -Starting Life in Another World- Season 4",
+      "nota": 90,
       "generos": [
-        "Gênero A",
-        "Gênero B"
+        "Action",
+        "Adventure",
+        "Drama"
       ],
-      "estudio": "Estúdio X",
-      "episodios": 24,
-      "capa": null,
-      "ano": 2024,
-      "formato": "MOVIE",
-      "popularidade": 250000
+      "estudio": "WHITE FOX",
+      "episodios": 19,
+      "capa": "gerado-top/top-1.jpg",
+      "ano": 2026,
+      "formato": "TV",
+      "popularidade": 156737
     },
     {
       "rank": 2,
-      "titulo": "Título de exemplo 2",
+      "titulo": "Mushoku Tensei: Jobless Reincarnation Season 3",
       "nota": 86,
       "generos": [
-        "Gênero A"
+        "Adventure",
+        "Drama",
+        "Ecchi"
       ],
-      "estudio": "Estúdio Y",
-      "episodios": 12,
-      "capa": null,
-      "ano": 2023,
+      "estudio": "Studio Bind",
+      "episodios": 14,
+      "capa": "gerado-top/top-2.jpg",
+      "ano": 2026,
       "formato": "TV",
-      "popularidade": 232000
+      "popularidade": 177349
     },
     {
       "rank": 3,
-      "titulo": "Título de exemplo 3",
-      "nota": 85,
+      "titulo": "That Time I Got Reincarnated as a Slime Season 4",
+      "nota": 83,
       "generos": [
-        "Gênero C"
+        "Action",
+        "Adventure",
+        "Comedy"
       ],
-      "estudio": null,
-      "episodios": null,
-      "capa": null,
-      "ano": 2022,
+      "estudio": "8-bit",
+      "episodios": 24,
+      "capa": "gerado-top/top-3.jpg",
+      "ano": 2026,
       "formato": "TV",
-      "popularidade": 214000
+      "popularidade": 148219
     },
     {
       "rank": 4,
-      "titulo": "Título de exemplo 4",
-      "nota": 84,
+      "titulo": "Welcome to Demon School! Iruma-kun Season 4",
+      "nota": 81,
       "generos": [
-        "Gênero B"
+        "Comedy",
+        "Fantasy",
+        "Supernatural"
       ],
-      "estudio": "Estúdio X",
-      "episodios": 26,
-      "capa": null,
-      "ano": 2021,
-      "formato": "MOVIE",
-      "popularidade": 196000
+      "estudio": "Bandai Namco Pictures",
+      "episodios": 24,
+      "capa": "gerado-top/top-4.jpg",
+      "ano": 2026,
+      "formato": "TV",
+      "popularidade": 44827
     },
     {
       "rank": 5,
-      "titulo": "Título de exemplo 5",
-      "nota": 83,
+      "titulo": "Sentenced to Be a Hero",
+      "nota": 80,
       "generos": [
-        "Gênero A",
-        "Gênero C"
+        "Action",
+        "Drama",
+        "Fantasy"
       ],
-      "estudio": "Estúdio Z",
-      "episodios": 13,
-      "capa": null,
-      "ano": 2020,
+      "estudio": "Studio KAI",
+      "episodios": 12,
+      "capa": "gerado-top/top-5.jpg",
+      "ano": 2026,
       "formato": "TV",
-      "popularidade": 178000
+      "popularidade": 168883
     },
     {
       "rank": 6,
-      "titulo": "Título de exemplo 6",
-      "nota": 82,
+      "titulo": "Saga of Tanya the Evil Season 2",
+      "nota": 80,
       "generos": [
-        "Gênero D"
+        "Action",
+        "Fantasy"
       ],
-      "estudio": "Estúdio Y",
-      "episodios": 24,
-      "capa": null,
-      "ano": 2019,
+      "estudio": "NUT",
+      "episodios": 12,
+      "capa": "gerado-top/top-6.jpg",
+      "ano": 2026,
       "formato": "TV",
-      "popularidade": 160000
+      "popularidade": 100404
     },
     {
       "rank": 7,
-      "titulo": "Título de exemplo 7",
-      "nota": 81,
+      "titulo": "Clevatess Season 2",
+      "nota": 78,
       "generos": [
-        "Gênero A"
+        "Action",
+        "Drama",
+        "Fantasy"
       ],
-      "estudio": "Estúdio X",
-      "episodios": 12,
-      "capa": null,
-      "ano": 2018,
-      "formato": "MOVIE",
-      "popularidade": 142000
+      "estudio": "Lay-duce",
+      "episodios": 13,
+      "capa": "gerado-top/top-7.jpg",
+      "ano": 2026,
+      "formato": "TV",
+      "popularidade": 51508
     },
     {
       "rank": 8,
-      "titulo": "Título de exemplo 8",
-      "nota": 80,
+      "titulo": "An Observation Log of My Fiancée Who Calls Herself a Villainess",
+      "nota": 77,
       "generos": [
-        "Gênero B",
-        "Gênero D"
+        "Comedy",
+        "Fantasy",
+        "Romance"
       ],
-      "estudio": "Estúdio Z",
-      "episodios": 25,
-      "capa": null,
-      "ano": 2017,
-      "formato": "TV",
-      "popularidade": 124000
+      "estudio": "Ashi Productions",
+      "episodios": 12,
+      "capa": "gerado-top/top-8.jpg",
+      "ano": 2026,
+      "formato": "ONA",
+      "popularidade": 34548
     },
     {
       "rank": 9,
-      "titulo": "Título de exemplo 9",
-      "nota": 79,
+      "titulo": "Ascendance of a Bookworm: Adopted Daughter of an Archduke",
+      "nota": 77,
       "generos": [
-        "Gênero C"
+        "Drama",
+        "Fantasy",
+        "Slice of Life"
       ],
-      "estudio": "Estúdio Y",
-      "episodios": 11,
-      "capa": null,
-      "ano": 2016,
+      "estudio": "WIT STUDIO",
+      "episodios": 24,
+      "capa": "gerado-top/top-9.jpg",
+      "ano": 2026,
       "formato": "TV",
-      "popularidade": 106000
+      "popularidade": 42025
     },
     {
       "rank": 10,
-      "titulo": "Título de exemplo 10 com nome bem longo para testar a quebra de linha",
-      "nota": 78,
+      "titulo": "Chained Soldier Season 2",
+      "nota": 74,
       "generos": [
-        "Gênero A"
+        "Action",
+        "Adventure",
+        "Drama"
       ],
-      "estudio": "Estúdio X",
-      "episodios": 13,
-      "capa": null,
-      "ano": 2015,
-      "formato": "MOVIE",
-      "popularidade": 88000
+      "estudio": "Passione",
+      "episodios": 12,
+      "capa": "gerado-top/top-10.jpg",
+      "ano": 2026,
+      "formato": "TV",
+      "popularidade": 54922
     }
-  ]
+  ],
+  "fonte": "Dados e capas: AniList"
 }

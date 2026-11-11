@@ -4,6 +4,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { renderVideo } from "./render";
 import { escolheMusica } from "./musica";
+import { buscaAnime, Ficha } from "./anilist";
+import { GENEROS } from "./generos";
 import { SEG_POR_CORTE, SEG_REVELACAO, INTRO_SEG } from "../config";
 
 const RAIZ = process.cwd();
@@ -21,6 +23,7 @@ const n = Number(arg("n", "10"));
 const nCortes = Math.max(1, Number(arg("cortes", "1"))); // 1 = um zoom só e depois a imagem inteira
 const seed = Number(arg("seed", String(Date.now() % 1e9)));
 const render = process.argv.includes("--render");
+const usarAnilist = !process.argv.includes("--sem-anilist"); // revelação do modo "quatro": capa e nota do AniList
 const peso = render ? 10 : 100; // % da barra usada na preparação dos dados e imagens
 // Linhas "@@{...}" são lidas pelo painel para mostrar etapa, porcentagem e tempo restante.
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
@@ -49,7 +52,16 @@ const nomeBonito = (pasta: string) => {
   }
   return pasta.replace(/[-_]+/g, " ").replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 };
-const imagens = (pasta: string) => fs.readdirSync(path.join(ACERVO, pasta)).filter((f) => EXT.test(f)).sort();
+// "capa.jpg|png|webp" é o cartão de capa da revelação: não entra no sorteio das dicas.
+const imagens = (pasta: string) => fs.readdirSync(path.join(ACERVO, pasta)).filter((f) => EXT.test(f) && !/^capa\./i.test(f)).sort();
+const capaDe = (pasta: string) => fs.readdirSync(path.join(ACERVO, pasta)).find((f) => EXT.test(f) && /^capa\./i.test(f));
+// anime.json opcional: { "nome": "Dr. Stone", "anilistId": 105333, "nota": 8.7 }
+// anilistId força o anime certo no AniList; nota (0 a 10) substitui a do AniList.
+const extras = (pasta: string): { anilistId?: number; nota?: number } => {
+  const f = path.join(ACERVO, pasta, "anime.json");
+  if (!fs.existsSync(f)) return {};
+  try { const j = JSON.parse(fs.readFileSync(f, "utf8")); return { anilistId: Number.isInteger(j.anilistId) ? j.anilistId : undefined, nota: typeof j.nota === "number" ? j.nota : undefined }; } catch { return {}; }
+};
 
 // Pontos com mais detalhe (bordas), para o zoom não cair em céu ou fundo liso.
 async function pontosDeDetalhe(arquivo: string, k: number) {
@@ -72,6 +84,12 @@ async function pontosDeDetalhe(arquivo: string, k: number) {
     if (escolhidas.length === k) break;
   }
   return escolhidas.map((c) => ({ x: Math.round(((c.bx + 0.5) * bw / W) * 100), y: Math.round(((c.by + 0.5) * bh / H) * 100) }));
+}
+
+async function baixaCapa(url: string, destino: string) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(String(r.status));
+  await sharp(Buffer.from(await r.arrayBuffer())).resize(680, 1020, { fit: "cover" }).jpeg({ quality: 88 }).toFile(destino);
 }
 
 async function prepara(pasta: string, arquivo: string, saida: string) {
@@ -113,7 +131,31 @@ async function main() {
     } else {
       const arqs = escolheImagens(pasta, 4);
       const imgs = await Promise.all(arqs.map((a, j) => prepara(pasta, a, `${numero}_${j + 1}.jpg`)));
-      saida.push({ numero, anime, imagens: imgs });
+      const ex = extras(pasta);
+      let ficha: Ficha | null = null;
+      if (usarAnilist) {
+        try {
+          ficha = await buscaAnime(anime, ex.anilistId);
+          if (ficha) console.log(`AniList: "${anime}" -> "${ficha.titulo}" (id ${ficha.id}). Se estiver errado, ponha "anilistId" no anime.json da pasta.`);
+          else console.warn(`Aviso: "${anime}" não foi encontrado no AniList.`);
+        } catch (e) { console.warn(`Aviso: AniList falhou para "${anime}" (${(e as Error).message}); a revelação sai sem esses dados.`); }
+      }
+      // Capa: o arquivo capa.* da pasta tem prioridade; senão, a do AniList.
+      const arqCapa = capaDe(pasta);
+      let capa: string | null = null;
+      if (arqCapa) {
+        await sharp(path.join(ACERVO, pasta, arqCapa)).resize(680, 1020, { fit: "cover" }).jpeg({ quality: 88 }).toFile(path.join(GERADO, `${numero}_capa.jpg`));
+        capa = `gerado/${numero}_capa.jpg`;
+      } else if (ficha?.capa) {
+        try { await baixaCapa(ficha.capa, path.join(GERADO, `${numero}_capa.jpg`)); capa = `gerado/${numero}_capa.jpg`; }
+        catch (e) { console.warn(`Aviso: capa do AniList de "${anime}" não baixou (${(e as Error).message}).`); }
+      }
+      saida.push({
+        numero, anime, imagens: imgs, capa,
+        nota: ex.nota ?? (ficha?.nota != null ? ficha.nota / 10 : null),
+        generos: (ficha?.generos ?? []).slice(0, 2).map((g) => GENEROS.find((x) => x.id === g)?.pt ?? g),
+        ano: ficha?.ano ?? null, formato: ficha?.formato ?? null, estudio: ficha?.estudio ?? null,
+      });
       duracoes.push(4 * 3 + 3); // modo quatro usa os tempos de QuizLongo (3 s por dica)
       hist[pasta] = [...(hist[pasta] ?? []), ...arqs];
     }

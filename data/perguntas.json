@@ -1,5 +1,78 @@
 [
-  { "numero": 1, "anime": "Anime Exemplo A", "imagens": [null, null, null, null] },
-  { "numero": 2, "anime": "Anime Exemplo B", "imagens": [null, null, null, null] },
-  { "numero": 3, "anime": "Anime Exemplo C", "imagens": [null, null, null, null] }
+  {
+    "numero": 1,
+    "anime": "Bleach",
+    "imagens": [
+      "gerado/1_1.jpg",
+      "gerado/1_2.jpg",
+      "gerado/1_3.jpg",
+      "gerado/1_4.jpg"
+    ],
+    "capa": "gerado/1_capa.jpg",
+    "nota": 7.9,
+    "generos": [
+      "Ação",
+      "Aventura"
+    ],
+    "ano": 2004,
+    "formato": "TV",
+    "estudio": "Studio Pierrot"
+  },
+  {
+    "numero": 2,
+    "anime": "Ben To",
+    "imagens": [
+      "gerado/2_1.jpg",
+      "gerado/2_2.jpg",
+      "gerado/2_3.jpg",
+      "gerado/2_4.jpg"
+    ],
+    "capa": "gerado/2_capa.jpg",
+    "nota": 6.8,
+    "generos": [
+      "Ação",
+      "Comédia"
+    ],
+    "ano": 2011,
+    "formato": "TV",
+    "estudio": "david production"
+  },
+  {
+    "numero": 3,
+    "anime": "Fairy Tail (2014)",
+    "imagens": [
+      "gerado/3_1.jpg",
+      "gerado/3_2.jpg",
+      "gerado/3_3.jpg",
+      "gerado/3_4.jpg"
+    ],
+    "capa": "gerado/3_capa.jpg",
+    "nota": 7.4,
+    "generos": [
+      "Ação",
+      "Aventura"
+    ],
+    "ano": 2014,
+    "formato": "TV",
+    "estudio": "A-1 Pictures"
+  },
+  {
+    "numero": 4,
+    "anime": "A Certain Magical Index",
+    "imagens": [
+      "gerado/4_1.jpg",
+      "gerado/4_2.jpg",
+      "gerado/4_3.jpg",
+      "gerado/4_4.jpg"
+    ],
+    "capa": "gerado/4_capa.jpg",
+    "nota": 7,
+    "generos": [
+      "Ação",
+      "Ficção científica"
+    ],
+    "ano": 2008,
+    "formato": "TV",
+    "estudio": "J.C.STAFF"
+  }
 ]
