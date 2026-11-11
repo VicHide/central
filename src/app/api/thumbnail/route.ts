@@ -52,29 +52,50 @@ async function imagemCartao(arquivo: string, numero: number, tamanho: number, ro
     .toBuffer();
 
   const arte = Buffer.from(`<svg width="${tamanho}" height="${tamanho}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="3" y="3" width="${tamanho - 6}" height="${tamanho - 6}" rx="20" fill="none" stroke="#101820" stroke-width="12"/>
-    <rect x="8" y="8" width="${tamanho - 16}" height="${tamanho - 16}" rx="16" fill="none" stroke="#fff" stroke-width="5"/>
-    <rect x="17" y="17" width="58" height="58" rx="15" fill="#e52b36" stroke="#111" stroke-width="5"/>
-    <text x="46" y="60" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="39" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${numero}</text>
+    <rect x="3" y="3" width="${tamanho - 6}" height="${tamanho - 6}" rx="22" fill="none" stroke="#101820" stroke-width="14"/>
+    <rect x="9" y="9" width="${tamanho - 18}" height="${tamanho - 18}" rx="17" fill="none" stroke="#fff" stroke-width="5"/>
+    <rect x="18" y="18" width="66" height="66" rx="17" fill="#e52b36" stroke="#111" stroke-width="5"/>
+    <text x="51" y="66" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="43" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${numero}</text>
   </svg>`);
 
-  const cartao = await sharp(imagem)
-    .composite([{ input: arte }])
-    .png()
-    .toBuffer();
-
+  const cartao = await sharp(imagem).composite([{ input: arte }]).png().toBuffer();
   return sharp(cartao)
     .rotate(rotacao, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 }
 
-function sombraCartao(x: number, y: number, tamanho: number, rotacao: number) {
-  const centro = tamanho / 2 + 12;
-  return Buffer.from(`<svg width="${tamanho + 24}" height="${tamanho + 24}" xmlns="http://www.w3.org/2000/svg">
-    <defs><filter id="s"><feGaussianBlur stdDeviation="12"/></filter></defs>
-    <rect x="12" y="12" width="${tamanho}" height="${tamanho}" rx="20" fill="#07111d" opacity=".72" filter="url(#s)" transform="rotate(${rotacao} ${centro} ${centro})"/>
+function sombraCartao(tamanho: number, rotacao: number) {
+  const centro = tamanho / 2 + 18;
+  return Buffer.from(`<svg width="${tamanho + 36}" height="${tamanho + 36}" xmlns="http://www.w3.org/2000/svg">
+    <defs><filter id="s"><feGaussianBlur stdDeviation="16"/></filter></defs>
+    <rect x="18" y="18" width="${tamanho}" height="${tamanho}" rx="22" fill="#07111d" opacity=".82" filter="url(#s)" transform="rotate(${rotacao} ${centro} ${centro})"/>
   </svg>`);
+}
+
+async function pngComContorno(arquivo: string) {
+  const imagem = await sharp(arquivo)
+    .rotate()
+    .resize(520, 520, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+
+  const svg = Buffer.from(`<svg width="560" height="560" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="outline" x="-25%" y="-25%" width="150%" height="150%">
+        <feMorphology in="SourceAlpha" operator="dilate" radius="13" result="outer"/>
+        <feFlood flood-color="#101820" result="darkColor"/>
+        <feComposite in="darkColor" in2="outer" operator="in" result="darkStroke"/>
+        <feMorphology in="SourceAlpha" operator="dilate" radius="7" result="inner"/>
+        <feFlood flood-color="#ffffff" result="lightColor"/>
+        <feComposite in="lightColor" in2="inner" operator="in" result="lightStroke"/>
+        <feMerge><feMergeNode in="darkStroke"/><feMergeNode in="lightStroke"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <image x="20" y="20" width="520" height="520" href="data:image/png;base64,${imagem.toString("base64")}" filter="url(#outline)"/>
+  </svg>`);
+
+  return sharp(svg).png().toBuffer();
 }
 
 export async function POST() {
@@ -102,13 +123,12 @@ export async function POST() {
     }
 
     const sorteados = embaralha(candidatos).slice(0, 4);
-    // Mantém os quatro cards grandes; o PNG central se sobrepõe a eles.
-    const tamanho = 260;
+    const tamanho = 360;
     const cartoes = [
-      { x: 105, y: 28, rotulo: 1, rotacao: -6 },
-      { x: 915, y: 28, rotulo: 2, rotacao: 5 },
-      { x: 105, y: 355, rotulo: 3, rotacao: 4 },
-      { x: 915, y: 355, rotulo: 4, rotacao: -5 },
+      { x: 25, y: 105, rotulo: 1, rotacao: -7 },
+      { x: 895, y: 105, rotulo: 2, rotacao: 6 },
+      { x: 25, y: 330, rotulo: 3, rotacao: 5 },
+      { x: 895, y: 330, rotulo: 4, rotacao: -6 },
     ];
 
     const base = sharp({ create: { width: 1280, height: 720, channels: 4, background: "#00bfe9" } });
@@ -116,8 +136,7 @@ export async function POST() {
 
     for (let i = 0; i < cartoes.length; i++) {
       const q = cartoes[i];
-      const sombra = sombraCartao(q.x, q.y, tamanho, q.rotacao);
-      camadas.push({ input: sombra, left: q.x - 12, top: q.y - 12 });
+      camadas.push({ input: sombraCartao(tamanho, q.rotacao), left: q.x - 18, top: q.y - 18 });
       const cartao = await imagemCartao(sorteados[i].arquivo, q.rotulo, tamanho, q.rotacao);
       const meta = await sharp(cartao).metadata();
       const largura = meta.width ?? tamanho;
@@ -129,17 +148,11 @@ export async function POST() {
       });
     }
 
-    const pngCentral = await sharp(arquivoPng)
-      .rotate()
-      .resize(590, 590, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-      .png()
-      .toBuffer();
+    const pngCentral = await pngComContorno(arquivoPng);
+    camadas.push({ input: pngCentral, left: 360, top: 145 });
 
-    camadas.push({ input: pngCentral, left: 345, top: 62 });
-
-    // Contagem sem faixa de fundo, centralizada logo abaixo do PNG.
     const detalhes = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-      <text x="640" y="704" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="54" font-weight="900" letter-spacing="-2" fill="#fff" stroke="#101820" stroke-width="12" stroke-linejoin="round" paint-order="stroke">${dados.length} ANIMES</text>
+      <text x="640" y="112" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="66" font-weight="900" letter-spacing="-2" fill="#fff" stroke="#101820" stroke-width="16" stroke-linejoin="round" paint-order="stroke">${dados.length} ANIMES</text>
     </svg>`;
 
     const png = await base.composite([...camadas, { input: Buffer.from(detalhes) }]).png().toBuffer();
