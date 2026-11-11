@@ -13,7 +13,8 @@ const extensoes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function removerFundo(entrada: Buffer): Promise<Buffer> {
   const script = path.join(raiz, "thumbnail-ai", "remover_fundo.py");
-  const comando = process.env.THUMBNAIL_PYTHON || (process.platform === "win32" ? "python" : "python3");
+  const pythonLocal = path.join(raiz, "thumbnail-ai", ".venv", process.platform === "win32" ? "Scripts/python.exe" : "bin/python");
+  const comando = process.env.THUMBNAIL_PYTHON || (fs.existsSync(pythonLocal) ? pythonLocal : process.platform === "win32" ? "python" : "python3");
 
   return new Promise((resolve, reject) => {
     const processo = spawn(comando, [script], { cwd: raiz, windowsHide: true });
