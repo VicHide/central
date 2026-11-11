@@ -33,13 +33,13 @@ export async function POST(req: Request) {
     if (arquivo.size > 80 * 1024 * 1024) return Response.json({ erro: "O arquivo excede o limite de 80 MB." }, { status: 413 });
     const ext = path.extname(arquivo.name).toLowerCase();
     if (!extensoes.has(ext)) return Response.json({ erro: "Formato não permitido. Use MP3, WAV, OGG, M4A, AAC ou FLAC." }, { status: 400 });
+    const faixas = leCatalogo();
     const base = nomeSeguro(path.basename(arquivo.name, ext)) || "faixa";
     fs.mkdirSync(pasta, { recursive: true });
     let nome = base + ext, n = 2;
     while (fs.existsSync(path.join(pasta, nome))) nome = base + "-" + n++ + ext;
     const bytes = Buffer.from(await arquivo.arrayBuffer());
     fs.writeFileSync(path.join(pasta, nome), bytes, { flag: "wx" });
-    const faixas = leCatalogo();
     const titulo = String(form.get("titulo") || path.basename(arquivo.name, ext)).trim().slice(0, 160);
     const artista = String(form.get("artista") || "").trim().slice(0, 160);
     const credito = String(form.get("credito") || "").trim().slice(0, 1000);
