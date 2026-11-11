@@ -56,6 +56,8 @@ export async function POST(req: Request) {
   }
 
   const nomes = registros.map((r) => normaliza(r.titulo ?? r.anime)).filter(Boolean);
+  const contextoTop = tipo === "top" ? leJson("top.json") as { titulo?: string; subtitulo?: string } | null : null;
+  const temaTop = [contextoTop?.titulo, contextoTop?.subtitulo].map(normaliza).filter(Boolean);
   const generos = registros.flatMap((r) => r.generos ?? []);
   const estudios = registros.map((r) => normaliza(r.estudio ?? ""));
   const anos = registros.map((r) => r.ano).filter((v): v is number => Number.isInteger(v));
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
   const termosFormato = formatos.filter(Boolean);
 
   // O YouTube limita o campo de tags a 500 caracteres; preserva termos inteiros.
-  const candidatos = tagsUnicas([...base, ...termosNomes, ...termosGenero, ...termosEstudio, ...termosFormato, ...termosAno]);
+  const candidatos = tagsUnicas([...base, ...temaTop, ...termosNomes, ...termosGenero, ...termosEstudio, ...termosFormato, ...termosAno]);
   const selecionadas: string[] = [];
   let total = 0;
   for (const tag of candidatos) {
