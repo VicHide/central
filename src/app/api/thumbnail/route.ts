@@ -183,7 +183,7 @@ export async function POST() {
       <path d="M856 161 L899 145 L892 190" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="920" cy="108" r="48" fill="#f33c69" stroke="#fff" stroke-width="9"/>
       <text x="920" y="133" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="72" font-weight="900" fill="#fff" stroke="#a81745" stroke-width="3" paint-order="stroke">?</text>
-      <text x="640" y="672" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="82" font-weight="900" letter-spacing="-3" fill="url(#yellow)" stroke="#171329" stroke-width="19" stroke-linejoin="round" paint-order="stroke" style="filter:drop-shadow(0 7px 2px #111)">${dados.length} ANIMES</text>
+      <text x="640" y="672" text-anchor="middle" font-family="Impact, DejaVu Sans Condensed, sans-serif" font-size="88" font-weight="900" letter-spacing="-2" fill="url(#yellow)" stroke="#171329" stroke-width="19" stroke-linejoin="round" paint-order="stroke" style="filter:drop-shadow(0 7px 2px #111)">${dados.length} ANIMES</text>
     </svg>`);
 
     const png = await sharp({ create: { width: 1280, height: 720, channels: 4, background: "#101a32" } })
