@@ -44,23 +44,40 @@ function pngAleatorio(): string | null {
   return arquivos.length ? arquivos[randomInt(arquivos.length)] : null;
 }
 
-async function imagemCartao(arquivo: string, numero: number, largura: number, altura: number, cor: string) {
+async function imagemCartao(
+  arquivo: string,
+  numero: number,
+  largura: number,
+  altura: number,
+  cor: string,
+  numeroNaDireita: boolean,
+) {
   const imagem = await sharp(arquivo)
     .rotate()
     .resize(largura, altura, { fit: "cover", position: "centre" })
     .png()
     .toBuffer();
 
+  // Recorta a própria imagem com o mesmo raio dos quadros para impedir vazamento nos cantos.
+  const mascara = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${largura}" height="${altura}" rx="28" fill="#fff"/>
+  </svg>`);
+  const imagemRecortada = await sharp(imagem)
+    .composite([{ input: mascara, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+
+  const cx = numeroNaDireita ? largura - 48 : 48;
   const arte = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
     <rect x="3" y="3" width="${largura - 6}" height="${altura - 6}" rx="32" fill="none" stroke="#101820" stroke-width="18"/>
     <rect x="9" y="9" width="${largura - 18}" height="${altura - 18}" rx="27" fill="none" stroke="${cor}" stroke-width="9"/>
     <rect x="17" y="17" width="${largura - 34}" height="${altura - 34}" rx="22" fill="none" stroke="#fff" stroke-width="4"/>
-    <circle cx="48" cy="48" r="38" fill="#ed174c" stroke="#fff" stroke-width="8"/>
-    <circle cx="48" cy="48" r="33" fill="none" stroke="#111" stroke-width="4"/>
-    <text x="48" y="63" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="42" font-weight="900" fill="#fff" stroke="#111" stroke-width="2" paint-order="stroke">${numero}</text>
+    <circle cx="${cx}" cy="48" r="38" fill="#ed174c" stroke="#fff" stroke-width="8"/>
+    <circle cx="${cx}" cy="48" r="33" fill="none" stroke="#111" stroke-width="4"/>
+    <text x="${cx}" y="63" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="42" font-weight="900" fill="#fff" stroke="#111" stroke-width="2" paint-order="stroke">${numero}</text>
   </svg>`);
 
-  return sharp(imagem).composite([{ input: arte }]).png().toBuffer();
+  return sharp(imagemRecortada).composite([{ input: arte }]).png().toBuffer();
 }
 
 function sombraCartao(largura: number, altura: number) {
@@ -120,13 +137,13 @@ export async function POST() {
     }
 
     const sorteados = embaralha(candidatos).slice(0, 4);
-    const largura = 610;
-    const altura = 300;
+    const largura = 590;
+    const altura = 290;
     const cartoes = [
-      { x: 20, y: 18, numero: 1, cor: "#f21d50" },
-      { x: 650, y: 18, numero: 2, cor: "#a52bff" },
-      { x: 20, y: 350, numero: 3, cor: "#ffb21c" },
-      { x: 650, y: 350, numero: 4, cor: "#20c8ed" },
+      { x: 25, y: 22, numero: 1, cor: "#f21d50", numeroNaDireita: false },
+      { x: 665, y: 22, numero: 2, cor: "#a52bff", numeroNaDireita: true },
+      { x: 25, y: 365, numero: 3, cor: "#ffb21c", numeroNaDireita: false },
+      { x: 665, y: 365, numero: 4, cor: "#20c8ed", numeroNaDireita: true },
     ];
 
     const fundo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
@@ -153,17 +170,15 @@ export async function POST() {
       const q = cartoes[i];
       camadas.push({ input: sombraCartao(largura, altura), left: q.x - 24, top: q.y - 24 });
       camadas.push({
-        input: await imagemCartao(sorteados[i].arquivo, q.numero, largura, altura, q.cor),
+        input: await imagemCartao(sorteados[i].arquivo, q.numero, largura, altura, q.cor, q.numeroNaDireita),
         left: q.x,
         top: q.y,
       });
     }
 
-    // Personagem em primeiro plano, sobrepondo os quatro quadros.
     const pngCentral = await pngComContorno(arquivoPng);
     camadas.push({ input: pngCentral, left: 335, top: 72 });
 
-    // Título em duas linhas, sobreposto à parte inferior do personagem como na referência.
     const titulo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
@@ -172,7 +187,7 @@ export async function POST() {
           <stop offset="1" stop-color="#f06a00"/>
         </linearGradient>
       </defs>
-      <text x="640" y="625" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="112" font-weight="1000" letter-spacing="-5" fill="url(#gold)" stroke="#080808" stroke-width="25" stroke-linejoin="round" paint-order="stroke"> ${dados.length} </text>
+      <text x="640" y="625" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="112" font-weight="1000" letter-spacing="-5" fill="url(#gold)" stroke="#080808" stroke-width="25" stroke-linejoin="round" paint-order="stroke">${dados.length}</text>
       <text x="640" y="704" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="76" font-weight="1000" letter-spacing="-3" fill="#fff" stroke="#080808" stroke-width="22" stroke-linejoin="round" paint-order="stroke">ANIMES</text>
     </svg>`);
 
