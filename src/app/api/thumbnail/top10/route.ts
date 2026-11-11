@@ -20,7 +20,14 @@ function arquivoCapa(valor: unknown): string | null {
 }
 
 function escaparSvg(texto: string) {
-  return texto.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c] ?? c);
+  const entidades: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&apos;",
+  };
+  return texto.replace(/[&<>"']/g, (caractere) => entidades[caractere] ?? caractere);
 }
 
 function linhasTitulo(texto: string, max = 20) {
