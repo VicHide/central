@@ -241,3 +241,25 @@
   .animeButton small, .selectedAnime small { white-space: normal; }
   .footer { flex-direction: column; gap: 4px; }
 }
+
+/* Controles da fila e registro de atividade */
+.queueActions { display:flex; flex:none; align-items:center; gap:4px; }
+.queueActions button { display:grid; place-items:center; width:27px; height:27px; padding:0; border:1px solid #d5dbd4; border-radius:7px; background:#fafbf9; color:#586158; font:inherit; font-size:14px; cursor:pointer; }
+.queueActions button:not(:disabled):hover { border-color:#b9a58f; background:#f0ebe5; color:#765238; }
+.queueActions button:disabled { opacity:.3; cursor:not-allowed; }
+.queueActions .removeQueueItem { color:#a3433a; }
+.logsPanel { margin-top:18px; overflow:hidden; border:1px solid #e3e7e2; border-radius:10px; background:#fafbf9; }
+.logsHeading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 15px; border-bottom:1px solid #e3e7e2; }
+.logsHeading h3 { margin:0 0 3px; font-size:12px; font-weight:650; }
+.logsHeading p { margin:0; color:#737b73; font-size:10px; }
+.logsHeading>span { flex:none; padding:4px 8px; border-radius:99px; background:#ecefe9; color:#586158; font-size:10px; }
+.logsList { max-height:280px; overflow:auto; padding:3px 14px; scrollbar-width:thin; scrollbar-color:#c5cdc4 transparent; }
+.logEntry { display:grid; grid-template-columns:66px 48px minmax(0,1fr); align-items:start; gap:9px; padding:8px 0; border-bottom:1px solid #e9ece8; }
+.logEntry:last-child { border-bottom:0; }
+.logEntry time { color:#899188; font:10px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; font-variant-numeric:tabular-nums; }
+.logEntry>span { color:#69736a; font-size:9px; font-weight:750; letter-spacing:.04em; }
+.logEntry p { min-width:0; margin:0; color:#4c554d; font-size:10px; line-height:1.55; overflow-wrap:anywhere; }
+.logEntry[data-level="success"]>span { color:#376a45; }
+.logEntry[data-level="warning"]>span { color:#94632e; }
+.logEntry[data-level="error"]>span,.logEntry[data-level="error"] p { color:#a3433a; }
+@media(max-width:560px) { .queueItem { flex-wrap:wrap; } .queueInfo { flex-basis:calc(100% - 48px); } .queueItem>.status { margin-left:41px; } .queueActions { margin-left:auto; } .logEntry { grid-template-columns:56px 42px minmax(0,1fr); gap:6px; } }
