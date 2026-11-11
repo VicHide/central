@@ -213,8 +213,9 @@ export default function Page() {
         <nav>
           <a className="nav-link active" href="#novo">Novo vídeo</a>
           <a className="nav-link" href="#top">Top 10 (Short)</a>
-          <a className="nav-link" href="#projetos">Produção</a>\n          <a className="nav-link" href="#musicas">Músicas</a>
+          <a className="nav-link" href="#projetos">Produção</a>
           <a className="nav-link" href="#acervo">Acervo</a>
+          <a className="nav-link" href="#musicas">Músicas</a>
           <a className="nav-link" href="#thumbnail">Thumbnails</a>
           <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
@@ -271,17 +272,7 @@ export default function Page() {
               </div>
             </section>
 
-            <aside className="pipeline-panel">
-              <div className="section-head"><div><h2>O que acontece</h2><p>Tudo roda no seu computador.</p></div></div>
-              <ul className="pipeline-list">
-                <li><span className="pipeline-dot" /><div><strong>Sorteio no acervo</strong><small>Menos usados primeiro, com seed reproduzível</small></div></li>
-                <li><span className="pipeline-dot" /><div><strong>Imagens padronizadas</strong><small>1080p; pontos de zoom nas áreas com mais detalhe</small></div></li>
-                <li><span className="pipeline-dot" /><div><strong>Abertura em cinco idiomas</strong><small>{estado.promos > 0 ? `${estado.promos} promos em promos/` : "Placeholders: coloque imagens em promos/"}</small></div></li>
-                <li><span className="pipeline-dot" /><div><strong>Renderização</strong><small>Remotion · vídeo longo 1920×1080</small></div></li>
-                <li><span className="pipeline-dot" /><div><strong>Título e capítulos</strong><small>Texto em out/, sem spoiler</small></div></li>
-              </ul>
-              <div className="pipeline-foot"><span className="signal" aria-hidden="true" />Nada é publicado automaticamente.</div>
-            </aside>
+    </aside>
           </div>
 
           <section className="composer" id="top" style={{ marginTop: 14 }}>
@@ -353,6 +344,18 @@ export default function Page() {
             </div>
           </section>
 
+</section>
+
+          <section className="jobs-section" id="acervo">
+            <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
+            {acervo.animes.length > 0 && (
+              <table>
+                <thead><tr><th>Pasta</th><th>Imagens</th><th>Já usadas</th></tr></thead>
+                <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
+              </table>
+            )}
+          
+
           <section className="music-library" id="musicas">
             <div className="music-heading"><div><span className="music-eyebrow">ACERVO DE ÁUDIO</span><h2>Biblioteca de músicas</h2><p>Organize as trilhas usadas na produção dos vídeos.</p></div><span className="music-total"><strong>{faixas.length}</strong><small>faixas no catálogo</small></span></div>
             <form className="music-form" onSubmit={enviaMusica}>
@@ -370,16 +373,6 @@ export default function Page() {
               {faixas.length === 0 && <p className="empty-state">Nenhuma música cadastrada.</p>}
               {faixas.map((f) => <div className="job" key={f.arquivo}><div className="job-row"><div><div className="job-topic">{f.titulo}</div><div className="job-meta">{f.artista || f.arquivo} · volume {f.volume ?? 0.18}</div></div><div className="job-stage">{f.ativa === false ? "Desativada" : "Disponível para sorteio"}</div><div className="actions"><button className="secondary" type="button" onClick={() => alternaMusica(f)}>{f.ativa === false ? "Ativar" : "Desativar"}</button><button className="secondary" type="button" onClick={() => excluiMusica(f)}>Excluir</button></div></div></div>)}
             </div>
-          </section>
-
-          <section className="jobs-section" id="acervo">
-            <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
-            {acervo.animes.length > 0 && (
-              <table>
-                <thead><tr><th>Pasta</th><th>Imagens</th><th>Já usadas</th></tr></thead>
-                <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
-              </table>
-            )}
           </section>
 
           <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
