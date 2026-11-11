@@ -413,9 +413,9 @@ export default function Page() {
             </div>
             <div className="form-body" style={{ marginTop: 20 }}>
               <div className="fields">
-                <label>Anime em destaque
+                <label>Capa de fundo
                   <select value={topThumbRank} onChange={(e) => setTopThumbRank(e.target.value)}>
-                    {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Posição {i + 1}</option>)}
+                    {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Capa {i + 1}</option>)}
                   </select>
                 </label>
                 <label>Chamada principal
@@ -423,7 +423,7 @@ export default function Page() {
                 </label>
               </div>
               <div className="form-footer">
-                <p className="helper">Usa a capa da posição escolhida como destaque e fundo. Gere um Top primeiro para preparar as capas. Não usa removedor de fundo nem serviços externos.</p>
+                <p className="helper">Escolha qual capa será usada como imagem de fundo. O número serve apenas para selecionar a capa e não aparece na arte.</p>
                 <div className="actions">
                   <button className="primary" onClick={gerarThumbnailTop} disabled={topThumbLoading}>{topThumbLoading ? "Montando thumbnail…" : topThumbUrl ? "Gerar novamente" : "Gerar thumbnail vertical"}</button>
                 </div>
