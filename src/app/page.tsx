@@ -62,6 +62,9 @@ export default function Page() {
   const [tags, setTags] = useState("");
   const [tagsMsg, setTagsMsg] = useState("");
   const [tagsLoading, setTagsLoading] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState("");
+  const [thumbMsg, setThumbMsg] = useState("");
+  const [thumbLoading, setThumbLoading] = useState(false);
 
   const carrega = async () => {
     try {
@@ -106,6 +109,21 @@ export default function Page() {
   const copiarTags = async () => {
     try { await navigator.clipboard.writeText(tags); setTagsMsg("Tags copiadas para a área de transferência."); }
     catch { setTagsMsg("Não foi possível copiar automaticamente. Selecione e copie o texto."); }
+  };
+  const gerarThumbnail = async () => {
+    setThumbLoading(true); setThumbMsg("");
+    try {
+      const r = await fetch("/api/thumbnail", { method: "POST" });
+      if (!r.ok) {
+        const d = await r.json();
+        throw new Error(d.erro ?? "Não foi possível gerar a thumbnail.");
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      setThumbUrl((anterior) => { if (anterior) URL.revokeObjectURL(anterior); return url; });
+      setThumbMsg("Thumbnail gerada. Você pode sortear outra ou salvar o PNG.");
+    } catch (e) { setThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail."); }
+    finally { setThumbLoading(false); }
   };
 
   const studio = async () => {
@@ -271,6 +289,21 @@ export default function Page() {
                 <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
               </table>
             )}
+          </section>
+
+          <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
+            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um quinto para o destaque, sem repetir.</p></div><span className="step-label">1280 × 720</span></div>
+            <div className="form-body" style={{ marginTop: 20 }}>
+              <div className="form-footer">
+                <p className="helper">Usa as imagens já preparadas em public/gerado/. O número de animes vem do último quiz.</p>
+                <div className="actions"><button className="primary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Sorteando…" : thumbUrl ? "Sortear novamente" : "Gerar thumbnail"}</button></div>
+              </div>
+              {thumbUrl && <div style={{ marginTop: 20 }}>
+                <img src={thumbUrl} alt="Prévia da thumbnail gerada" style={{ display: "block", width: "100%", maxWidth: 900, height: "auto", borderRadius: 10, border: "1px solid var(--border)" }} />
+                <div className="actions" style={{ marginTop: 12 }}><a className="secondary" href={thumbUrl} download="thumbnail-quiz.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a></div>
+              </div>}
+              {thumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{thumbMsg}</p>}
+            </div>
           </section>
 
           <section className="composer" id="tags" style={{ marginTop: 14 }}>
