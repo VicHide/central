@@ -47,7 +47,14 @@ async function imagemArredondada(arquivo: string, largura: number, altura: numbe
 }
 
 function moldura(x: number, y: number, w: number, h: number, rotulo: string) {
-  return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#101820" stroke-width="15"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#fff" stroke-width="8"/><rect x="${x + 9}" y="${y + 9}" width="${Math.max(130, rotulo.length * 17 + 30)}" height="43" rx="19" fill="#e52b36" stroke="#111" stroke-width="4"/><text x="${x + 24}" y="${y + 39}" font-family="Arial, sans-serif" font-size="27" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${rotulo}</text></g>`;
+  const larguras: Record<string, number> = {
+    HARD: 105,
+    MEDIUM: 145,
+    EASY: 95,
+    "VERY EASY": 170,
+  };
+  const larguraRotulo = larguras[rotulo] ?? Math.max(100, rotulo.length * 14 + 30);
+  return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#101820" stroke-width="15"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#fff" stroke-width="8"/><rect x="${x + 9}" y="${y + 9}" width="${larguraRotulo}" height="43" rx="19" fill="#e52b36" stroke="#111" stroke-width="4"/><text x="${x + 24}" y="${y + 39}" font-family="Arial, sans-serif" font-size="27" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${rotulo}</text></g>`;
 }
 
 export async function POST() {
