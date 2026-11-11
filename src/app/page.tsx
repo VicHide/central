@@ -326,8 +326,8 @@ export default function Page() {
             </div>
           </section>
 
-          <section className="composer" id="musicas" style={{ marginTop: 14 }}>
-            <div className="section-head"><div><h2>Biblioteca de músicas</h2><p>Envie uma faixa uma vez; ela entra automaticamente em data/musicas.json e fica disponível para os próximos vídeos.</p></div><span className="step-label">{faixas.length} cadastrada(s)</span></div>
+          <section className="music-library" id="musicas">
+            <div className="music-heading"><div><span className="music-eyebrow">ACERVO DE ÁUDIO</span><h2>Biblioteca de músicas</h2><p>Organize as trilhas usadas na produção dos vídeos.</p></div><span className="music-total"><strong>{faixas.length}</strong><small>faixas no catálogo</small></span></div>
             <form onSubmit={enviaMusica}>
               <div className="fields">
                 <label>Arquivo de áudio<input id="arquivo-musica" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; setMusicaArquivo(f); if (f && !musicaTitulo) setMusicaTitulo(f.name.replace(/\.[^.]+$/, "")); }} /></label>
