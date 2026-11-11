@@ -40,7 +40,7 @@ async function imagemArredondada(arquivo: string, largura: number, altura: numbe
   );
   return sharp(arquivo)
     .rotate()
-    .resize(largura, altura, { fit: "cover", position: "attention" })
+    .resize(largura, altura, { fit: "cover", position: "top" })
     .composite([{ input: mascara, blend: "dest-in" }])
     .png()
     .toBuffer();
