@@ -74,3 +74,26 @@ Leia os termos de uso do AniList antes de monetizar. A capa é arte promocional 
 `--tag isekai`, `--formato tv|filme|ova-ona`, `--situacao finalizado|lancando`, `--pais jp|cn|kr`, `--duracao curto|medio|longo`,
 `--de 2015 --ate 2020`, `--nota-min 75`, além de gênero, temporada/ano e critério. O Short agora dura cerca de 56 s
 (abertura 3 s, 5 s por item, fechamento 3 s) e mostra nota, gêneros, ano, formato, episódios, estúdio e popularidade.
+
+## Thumbnails com personagem recortado
+
+O painel mantém o gerador de thumbnail original e oferece um segundo modo que recebe uma imagem comum do personagem, remove o fundo localmente e aplica o contorno antes da composição.
+
+Instalação do processamento local (uma vez):
+
+```powershell
+py -m venv thumbnail-ai/.venv
+thumbnail-ai/.venv/Scripts/python.exe -m pip install -r thumbnail-ai/requirements.txt
+```
+
+No Linux/macOS:
+
+```bash
+python3 -m venv thumbnail-ai/.venv
+thumbnail-ai/.venv/bin/python -m pip install -r thumbnail-ai/requirements.txt
+```
+
+Na primeira geração, o modelo `isnet-anime` é baixado automaticamente para o cache local do rembg; é necessário ter internet nessa primeira execução. Depois, o recorte é processado na própria máquina, sem enviar a imagem para uma API. O tempo depende do processador e da resolução da imagem.
+
+O painel aceita PNG, JPG e WebP de até 12 MB. Se o Python estiver instalado em outro caminho, configure `THUMBNAIL_PYTHON` com o caminho completo do executável. A opção de personagem usa os quatro quadros do último quiz; o gerador original permanece disponível.
+
