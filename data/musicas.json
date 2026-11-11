@@ -1,6 +1,20 @@
 {
-  "_ajuda": "Baixe as faixas no site da NCS, coloque os arquivos em public/musica/ e descreva cada uma aqui. Em 'credito', cole o texto oficial de crédito da faixa (está na descrição do vídeo dela no canal da NCS).",
   "faixas": [
-    { "arquivo": "musica/exemplo.mp3", "titulo": "Nome da faixa", "artista": "Artista", "credito": "", "volume": 0.18, "ativa": false }
+    {
+      "arquivo": "musica/faixa-1.mp3",
+      "titulo": "Nome da faixa",
+      "artista": "Nome do artista",
+      "credito": "cole aqui o texto oficial de crédito",
+      "volume": 0.18,
+      "ativa": true
+    },
+    {
+      "arquivo": "musica/faixa-2.mp3",
+      "titulo": "Outra faixa",
+      "artista": "Outro artista",
+      "credito": "texto oficial da segunda faixa",
+      "volume": 0.18,
+      "ativa": true
+    }
   ]
 }

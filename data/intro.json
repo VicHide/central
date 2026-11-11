@@ -1,1 +1,8 @@
-{ "modo": "zoom", "promos": [null, null, null, null] }
+{
+  "modo": "quatro",
+  "promos": [
+    null,
+    null,
+    null
+  ]
+}

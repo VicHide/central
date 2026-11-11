@@ -35,3 +35,10 @@ Thumbs.db
 # Arquivos locais do FanCaps
 FanCaps-Downloader/downloads/
 
+# Histórico local de processamento
+data/jobs.json
+data/jobs.json.tmp
+
+# Arquivos gerados pelo painel
+public/gerado/
+public/gerado-top/

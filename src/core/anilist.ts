@@ -93,3 +93,46 @@ export async function topAnilist(o: Filtros): Promise<Midia[]> {
   fs.writeFileSync(arq, JSON.stringify({ t: Date.now(), dados }));
   return dados;
 }
+
+// ---------- Ficha de um anime pelo nome (para a revelação do quiz) ----------
+export type Ficha = { id: number; titulo: string; nota: number | null; generos: string[]; estudio: string | null; ano: number | null; formato: string | null; capa: string | null };
+const TTL_FICHA_MS = 7 * 24 * 3600 * 1000;
+const FICHA = `id title { romaji english } coverImage { extraLarge large } averageScore genres format startDate { year } studios(isMain: true) { nodes { name } }`;
+
+// Busca um anime por nome (melhor correspondência) ou por id. Devolve null se não achar.
+export async function buscaAnime(nome: string, id?: number): Promise<Ficha | null> {
+  const dir = path.join(process.cwd(), "data", "cache");
+  const arq = path.join(dir, `anilist-anime-${crypto.createHash("sha1").update(`${nome}|${id ?? ""}`).digest("hex").slice(0, 12)}.json`);
+  if (fs.existsSync(arq)) {
+    const c = JSON.parse(fs.readFileSync(arq, "utf8"));
+    if (Date.now() - c.t < TTL_FICHA_MS) return c.ficha;
+  }
+  const query = id !== undefined
+    ? `query ($id: Int) { Media(id: $id, type: ANIME) { ${FICHA} } }`
+    : `query ($search: String) { Media(search: $search, type: ANIME, isAdult: false, sort: SEARCH_MATCH) { ${FICHA} } }`;
+  const variables = id !== undefined ? { id } : { search: nome };
+
+  let m: Bruto | null | undefined;
+  for (let tentativa = 0; tentativa < 3 && m === undefined; tentativa++) {
+    const r = await fetch(URL_API, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ query, variables }) });
+    if (r.status === 429) {
+      const espera = Number(r.headers.get("retry-after") ?? 30);
+      console.log(`O AniList pediu para esperar ${espera}s (limite de requisições).`);
+      await new Promise((res) => setTimeout(res, espera * 1000));
+      continue;
+    }
+    if (r.status === 404) { m = null; break; } // não encontrado
+    if (!r.ok) throw new Error(`O AniList respondeu ${r.status}.`);
+    const j = await r.json();
+    m = j.data?.Media ?? null;
+    await new Promise((res) => setTimeout(res, 800)); // espaça as consultas para respeitar o limite
+  }
+  if (m === undefined) throw new Error("O AniList recusou por excesso de requisições.");
+  const ficha: Ficha | null = m && {
+    id: m.id, titulo: m.title.english ?? m.title.romaji ?? nome, nota: m.averageScore, generos: m.genres ?? [], estudio: m.studios?.nodes[0]?.name ?? null,
+    ano: m.startDate?.year ?? null, formato: m.format, capa: m.coverImage?.extraLarge ?? m.coverImage?.large ?? null,
+  };
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(arq, JSON.stringify({ t: Date.now(), ficha }));
+  return ficha;
+}

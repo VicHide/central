@@ -2,7 +2,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-DOWNLOAD_DIR = BASE_DIR.parent / "Acervo"
+DOWNLOAD_DIR = BASE_DIR.parent / "acervo"
 DATASET_PATH = DATA_DIR / "anime_data.json"
 DATABASE_PATH = DATA_DIR / "downloads.db"
 

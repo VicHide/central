@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 
 import imagehash
 from PIL import Image, ImageOps
@@ -46,7 +47,7 @@ class FrameSelector:
                 if path.is_file()
                 and path.suffix.lower() in SUPPORTED_FORMATS
             ],
-            key=lambda path: path.name.casefold()
+            key=lambda path: [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path.name.casefold())]
         )
 
     @staticmethod
@@ -61,6 +62,7 @@ class FrameSelector:
         images: list[Path],
         mode: str = "best",
         interval: int = 3,
+        progress_callback=None,
     ) -> FrameSelectionResult:
 
         images = list(images)
@@ -99,28 +101,27 @@ class FrameSelector:
         discarded = []
         previous_hash = None
 
-        for path in images:
+        for index, path in enumerate(images, start=1):
             try:
                 current_hash = self.calculate_hash(path)
-
             except (OSError, ValueError):
                 # Preserva imagens que não puderam ser analisadas.
                 selected.append(path)
                 previous_hash = None
-                continue
-
-            if previous_hash is None:
-                selected.append(path)
-                previous_hash = current_hash
-                continue
-
-            distance = previous_hash - current_hash
-
-            if distance <= self.threshold:
-                discarded.append(path)
             else:
-                selected.append(path)
-                previous_hash = current_hash
+                if previous_hash is None:
+                    selected.append(path)
+                    previous_hash = current_hash
+                else:
+                    distance = previous_hash - current_hash
+                    if distance <= self.threshold:
+                        discarded.append(path)
+                    else:
+                        selected.append(path)
+                        previous_hash = current_hash
+            finally:
+                if progress_callback:
+                    progress_callback(index, total)
 
         return FrameSelectionResult(
             selected=selected,

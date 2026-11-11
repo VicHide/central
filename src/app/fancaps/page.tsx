@@ -6,7 +6,8 @@ import styles from "./FanCaps.module.css";
 type Anime = { id: number; title: string; episodes: number; downloadable: number };
 type Episode = { number: string; title: string; source: string; image_count: number; available: boolean; registered: Record<string, number> };
 type QueueItem = { key: string; anime_id: number; anime_title: string; episode_number: string; episode_title: string; image_count: number; processed: number; downloaded: number; skipped: number; errors: number; status: string; current_image_id: number | null };
-type Queue = { active: boolean; paused: boolean; state: string; current_key: string | null; items: QueueItem[]; totals: { episodes: number; images: number; downloaded: number; skipped: number; errors: number; processed: number }; last_error?: string | null; last_summary?: { result: string } | null };
+type QueueLog = { time: number; level: "info" | "success" | "warning" | "error"; message: string };
+type Queue = { active: boolean; paused: boolean; state: string; current_key: string | null; items: QueueItem[]; totals: { episodes: number; images: number; downloaded: number; skipped: number; errors: number; processed: number }; logs?: QueueLog[]; last_error?: string | null; last_summary?: { result: string } | null };
 
 const getJson = async <T,>(url: string): Promise<T> => {
   const response = await fetch(url, { cache: "no-store" });
@@ -108,7 +109,7 @@ export default function FanCapsPage() {
               <div className={styles.controls}>
                 {!queue?.active ? <button className={styles.primary} disabled={busy || !queue?.items.some((x) => x.status === "waiting")} onClick={() => action("start")}>Iniciar fila</button> :
                   <button className={styles.primary} disabled={busy} onClick={() => action(queue.paused ? "resume" : "pause")}>{queue.paused ? "Retomar" : "Pausar"}</button>}
-                <button className={styles.secondary} disabled={busy || !!queue?.active || !queue?.items.length} onClick={() => action("clear")}>Limpar fila</button>
+                <button className={styles.secondary} disabled={busy || (queue?.active === true && !queue.paused) || !queue?.items.length} onClick={() => action("clear")}>Limpar fila</button>
               </div>
             </div>
             <div className={styles.progressTrack}><span style={{ width: percent + "%" }} /></div>
@@ -118,10 +119,26 @@ export default function FanCapsPage() {
                 <div className={styles.queueNumber}>{String(index + 1).padStart(2, "0")}</div>
                 <div className={styles.queueInfo}><strong>{item.anime_title}</strong><span>{item.episode_title} · {item.image_count} imagens</span><div className={styles.itemProgress}><span style={{ width: (item.image_count ? item.processed / item.image_count * 100 : 0) + "%" }} /></div><small>{item.processed}/{item.image_count} · {item.downloaded} baixadas · {item.skipped} existentes · {item.errors} erros</small></div>
                 <span className={styles.status} data-state={item.status}>{statusText[item.status] || item.status}</span>
+                <div className={styles.queueActions}>
+                  <button title="Mover para cima" aria-label={`Mover ${item.episode_title} para cima`} disabled={busy || !!queue.active || item.status !== "waiting" || !queue.items.slice(0, index).some((entry) => entry.status === "waiting")} onClick={() => action("move", { key: item.key, direction: "up" })}>↑</button>
+                  <button title="Mover para baixo" aria-label={`Mover ${item.episode_title} para baixo`} disabled={busy || !!queue.active || item.status !== "waiting" || !queue.items.slice(index + 1).some((entry) => entry.status === "waiting")} onClick={() => action("move", { key: item.key, direction: "down" })}>↓</button>
+                  <button className={styles.removeQueueItem} title="Remover da fila" aria-label={`Remover ${item.episode_title} da fila`} disabled={busy || !!queue.active || item.status !== "waiting"} onClick={() => action("remove", { key: item.key })}>×</button>
+                </div>
               </article>)}
             </div>
             {queue?.last_error && <p className={styles.errorNote}>{queue.last_error}</p>}
             {queue?.last_summary && <p className={styles.summaryNote}>Última execução: {queue.last_summary.result === "completed" ? "concluída" : queue.last_summary.result === "blocked" ? "interrompida por bloqueio do servidor" : "encerrada com erro"}.</p>}
+            <section className={styles.logsPanel}>
+              <div className={styles.logsHeading}><div><h3>Registro de atividade</h3><p>Eventos recentes da fila e dos downloads.</p></div><span>{queue?.logs?.length ?? 0} eventos</span></div>
+              <div className={styles.logsList}>
+                {!queue?.logs?.length && <p className={styles.empty}>Os eventos aparecerão aqui quando você adicionar ou processar episódios.</p>}
+                {[...(queue?.logs ?? [])].reverse().slice(0, 80).map((entry, index) => <div className={styles.logEntry} data-level={entry.level} key={`${entry.time}-${index}`}>
+                  <time>{new Date(entry.time * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
+                  <span>{entry.level === "error" ? "ERRO" : entry.level === "warning" ? "AVISO" : entry.level === "success" ? "OK" : "INFO"}</span>
+                  <p>{entry.message}</p>
+                </div>)}
+              </div>
+            </section>
           </section>
 
           <section className={styles.browser}>

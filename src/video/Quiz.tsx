@@ -11,6 +11,7 @@ import {
 } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Bangers";
 import { Efeito, Tics, Musica, MusicaProps } from "./Sons";
+import { Revelacao } from "./Revelacao";
 
 const { fontFamily } = loadFont();
 
@@ -20,6 +21,12 @@ export type Pergunta = {
   numero: number;
   anime: string;
   imagens: (string | null)[]; // 4 caminhos dentro de /public, ou null para placeholder
+  capa?: string | null; // cartão de capa na revelação (opcional; o gerar baixa do AniList)
+  nota?: number | null; // 0 a 10, do AniList (opcional)
+  generos?: string[]; // até 2, em português (opcional)
+  ano?: number | null;
+  formato?: string | null; // TV, MOVIE, OVA, ONA...
+  estudio?: string | null;
 };
 
 export type QuizProps = {
@@ -149,7 +156,7 @@ const Cena: React.FC<{ p: Pergunta; total: number; props: QuizProps }> = ({ p, t
       </div>
 
       {/* Revelação da resposta */}
-      {revelando && <Resposta nome={p.anime} frame={frame - 4 * dica} s={s} />}
+      {revelando && <Revelacao p={p} frame={frame - 4 * dica} canal={props.canal} />}
 
       {/* Áudio: entrada, dicas, tic-tac no fim e revelação */}
       <Efeito src="sfx/whoosh.wav" de={0} volume={0.35} />

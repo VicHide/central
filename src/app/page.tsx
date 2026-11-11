@@ -2,12 +2,15 @@
 import React, { useEffect, useState } from "react";
 import { estimaDuracao, estimaDuracaoTop } from "@/config";
 import { GENEROS, TEMPORADAS, ORDENS, TAGS, FORMATOS, SITUACOES, PAISES, DURACOES } from "@/core/generos";
+import Image from "next/image";
 
 type Meta = { n: number; render: boolean; duracaoSeg: number; resumo: string; preparo: string };
 type Job = { id: string; titulo: string; status: "rodando" | "ok" | "erro"; inicio: number; fim?: number; log: string[]; etapa?: string; pct?: number; eta?: number; detalhe?: string; meta?: Meta };
 type Acervo = { animes: { pasta: string; imagens: number; usadas: number }[]; promos: number };
 type Saida = { nome: string; kb: number; data: number };
 type Estado = { animes: number; promos: number; navegador: boolean; musicas: number };
+type Faixa = { arquivo: string; titulo: string; artista?: string; credito?: string; volume?: number; ativa?: boolean };
+
 
 const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
 const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.round(s) % 60).padStart(2, "0")}`;
@@ -58,6 +61,55 @@ export default function Page() {
   const [acervo, setAcervo] = useState<Acervo>({ animes: [], promos: 0 });
   const [saidas, setSaidas] = useState<Saida[]>([]);
   const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false, musicas: 0 });
+  const [tipoTags, setTipoTags] = useState<"quiz" | "top">("top");
+  const [tags, setTags] = useState("");
+  const [tagsMsg, setTagsMsg] = useState("");
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [thumbUrl, setThumbUrl] = useState("");
+  const [thumbMsg, setThumbMsg] = useState("");
+  const [thumbLoading, setThumbLoading] = useState(false);
+  const [faixas, setFaixas] = useState<Faixa[]>([]);
+  const [musicaArquivo, setMusicaArquivo] = useState<File | null>(null);
+  const [musicaTitulo, setMusicaTitulo] = useState("");
+  const [musicaArtista, setMusicaArtista] = useState("");
+  const [musicaCredito, setMusicaCredito] = useState("");
+  const [musicaVolume, setMusicaVolume] = useState("0.18");
+  const [musicaMsg, setMusicaMsg] = useState("");
+  const [musicaLoading, setMusicaLoading] = useState(false);
+
+  const carregaMusicas = async () => {
+    try { const d = await buscar<{ faixas: Faixa[] }>("/api/musicas"); setFaixas(d.faixas ?? []); }
+    catch { /* catálogo indisponível */ }
+  };
+  const enviaMusica = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!musicaArquivo) { setMusicaMsg("Selecione um arquivo de áudio."); return; }
+    setMusicaLoading(true); setMusicaMsg("");
+    try {
+      const fd = new FormData();
+      fd.set("arquivo", musicaArquivo); fd.set("titulo", musicaTitulo); fd.set("artista", musicaArtista);
+      fd.set("credito", musicaCredito); fd.set("volume", musicaVolume);
+      const r = await fetch("/api/musicas", { method: "POST", body: fd });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível enviar a música.");
+      setMusicaMsg("Música enviada e cadastrada no catálogo.");
+      setMusicaArquivo(null); setMusicaTitulo(""); setMusicaArtista(""); setMusicaCredito(""); setMusicaVolume("0.18");
+      const input = document.getElementById("arquivo-musica") as HTMLInputElement | null; if (input) input.value = "";
+      await Promise.all([carregaMusicas(), carrega()]);
+    } catch (err) { setMusicaMsg(err instanceof Error ? err.message : "Erro ao enviar."); }
+    finally { setMusicaLoading(false); }
+  };
+  const alternaMusica = async (faixa: Faixa) => {
+    const r = await fetch("/api/musicas", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arquivo: faixa.arquivo, ativa: faixa.ativa === false }) });
+    const d = await r.json(); if (!r.ok) { setMusicaMsg(d.erro ?? "Falha ao atualizar."); return; }
+    setFaixas(d.faixas); carrega();
+  };
+  const excluiMusica = async (faixa: Faixa) => {
+    if (!window.confirm(`Excluir "${faixa.titulo}" do catálogo e apagar o arquivo?`)) return;
+    const r = await fetch("/api/musicas", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ arquivo: faixa.arquivo }) });
+    const d = await r.json(); if (!r.ok) { setMusicaMsg(d.erro ?? "Falha ao excluir."); return; }
+    setFaixas((atual) => atual.filter((f) => f.arquivo !== faixa.arquivo)); setMusicaMsg("Música excluída."); carrega();
+  };
 
   const carrega = async () => {
     try {
@@ -65,7 +117,7 @@ export default function Page() {
       setJobs(j); setAcervo(a); setSaidas(s); setEstado(e);
     } catch { /* servidor reiniciando */ }
   };
-  useEffect(() => { carrega(); const t = setInterval(carrega, 3000); return () => clearInterval(t); }, []);
+  useEffect(() => { carrega(); carregaMusicas(); const t = setInterval(() => { carrega(); carregaMusicas(); }, 3000); return () => clearInterval(t); }, []);
   useEffect(() => {
     const j = jobs.find((x) => x.status === "rodando");
     document.title = j ? `${j.pct ?? 0}% · Central do Canal` : "Central do Canal";
@@ -89,6 +141,36 @@ export default function Page() {
     setTMsg(r.ok ? "Tarefa iniciada. Acompanhe em Projetos." : d.erro ?? "Erro ao iniciar.");
     carrega();
   };
+  const gerarTags = async () => {
+    setTagsLoading(true); setTagsMsg(""); setTags("");
+    try {
+      const r = await fetch("/api/tags", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tipo: tipoTags }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível gerar as tags.");
+      setTags(d.tags); setTagsMsg(`${d.quantidade} tags · ${d.caracteres}/500 caracteres`);
+    } catch (e) { setTagsMsg(e instanceof Error ? e.message : "Erro ao gerar tags."); }
+    finally { setTagsLoading(false); }
+  };
+  const copiarTags = async () => {
+    try { await navigator.clipboard.writeText(tags); setTagsMsg("Tags copiadas para a área de transferência."); }
+    catch { setTagsMsg("Não foi possível copiar automaticamente. Selecione e copie o texto."); }
+  };
+  const gerarThumbnail = async () => {
+    setThumbLoading(true); setThumbMsg("");
+    try {
+      const r = await fetch("/api/thumbnail", { method: "POST" });
+      if (!r.ok) {
+        const d = await r.json();
+        throw new Error(d.erro ?? "Não foi possível gerar a thumbnail.");
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      setThumbUrl((anterior) => { if (anterior) URL.revokeObjectURL(anterior); return url; });
+      setThumbMsg("Thumbnail gerada. Você pode sortear outra ou salvar o PNG.");
+    } catch (e) { setThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail."); }
+    finally { setThumbLoading(false); }
+  };
+
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
     setTimeout(() => window.open(d.url, "_blank"), 2500);
@@ -105,11 +187,13 @@ export default function Page() {
         <nav>
           <a className="nav-link active" href="#novo">Novo vídeo</a>
           <a className="nav-link" href="#top">Top 10 (Short)</a>
-          <a className="nav-link" href="#projetos">Projetos</a>
+          <a className="nav-link" href="#projetos">Produção</a>\n          <a className="nav-link" href="#musicas">Músicas</a>
           <a className="nav-link" href="#acervo">Acervo</a>
+          <a className="nav-link" href="#thumbnail">Thumbnails</a>
           <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
           <a className="nav-link" href="/picker">Seletor de imagens</a>
+          <a className="nav-link" href="/frames">Detector de frames</a>
         </nav>
         <div className="sidebar-note"><span className="note-mark" aria-hidden="true" /><p>Um zoom.<br />Uma revelação.</p></div>
       </aside>
@@ -214,7 +298,7 @@ export default function Page() {
           </section>
 
           <section className="jobs-section" id="projetos">
-            <div className="jobs-heading"><div><h2>Projetos</h2><p>Progresso do que está sendo gerado, atualizado a cada 3 segundos.</p></div><span className="job-count">{jobs.length} {jobs.length === 1 ? "tarefa" : "tarefas"}</span></div>
+            <div className="jobs-heading"><div><h2>Gerenciador de produção</h2><p>Execuções atuais e histórico local, preservado mesmo após reiniciar o painel. Atualização a cada 3 segundos.</p></div><span className="job-count">{jobs.filter((j) => j.status === "rodando").length} em andamento · {jobs.filter((j) => j.status === "ok").length} concluídas · {jobs.filter((j) => j.status === "erro").length} com erro</span></div>
             <div className="jobs-list">
               {jobs.length === 0 && <p className="empty-state">Nenhuma tarefa ainda. Gere o primeiro projeto acima.</p>}
               {jobs.map((j, i) => (
@@ -243,6 +327,25 @@ export default function Page() {
             </div>
           </section>
 
+          <section className="music-library" id="musicas">
+            <div className="music-heading"><div><span className="music-eyebrow">ACERVO DE ÁUDIO</span><h2>Biblioteca de músicas</h2><p>Organize as trilhas usadas na produção dos vídeos.</p></div><span className="music-total"><strong>{faixas.length}</strong><small>faixas no catálogo</small></span></div>
+            <form className="music-form" onSubmit={enviaMusica}>
+              <div className="music-fields">
+                <label>Arquivo de áudio<input id="arquivo-musica" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; setMusicaArquivo(f); if (f && !musicaTitulo) setMusicaTitulo(f.name.replace(/\.[^.]+$/, "")); }} /></label>
+                <label>Título<input value={musicaTitulo} onChange={(e) => setMusicaTitulo(e.target.value)} placeholder="Nome da faixa" /></label>
+                <label>Artista<input value={musicaArtista} onChange={(e) => setMusicaArtista(e.target.value)} placeholder="Artista" /></label>
+                <label>Volume (0 a 1)<input type="number" min="0" max="1" step="0.01" value={musicaVolume} onChange={(e) => setMusicaVolume(e.target.value)} /></label>
+              </div>
+              <label className="music-credit">Crédito para a descrição<textarea value={musicaCredito} onChange={(e) => setMusicaCredito(e.target.value)} rows={2} placeholder="Crédito/licença exigidos pelo autor da música"  /></label>
+              <div className="form-footer"><p className="helper">MP3, WAV, OGG, M4A, AAC ou FLAC · até 80 MB. Confira os termos de uso e o crédito antes de publicar.</p><button className="primary" type="submit" disabled={musicaLoading || !musicaArquivo}>{musicaLoading ? "Enviando…" : "Enviar música"}</button></div>
+              {musicaMsg && <p className="config-note" role="status">{musicaMsg}</p>}
+            </form>
+            <div className="jobs-list" style={{ marginTop: 18 }}>
+              {faixas.length === 0 && <p className="empty-state">Nenhuma música cadastrada.</p>}
+              {faixas.map((f) => <div className="job" key={f.arquivo}><div className="job-row"><div><div className="job-topic">{f.titulo}</div><div className="job-meta">{f.artista || f.arquivo} · volume {f.volume ?? 0.18}</div></div><div className="job-stage">{f.ativa === false ? "Desativada" : "Disponível para sorteio"}</div><div className="actions"><button className="secondary" type="button" onClick={() => alternaMusica(f)}>{f.ativa === false ? "Ativar" : "Desativar"}</button><button className="secondary" type="button" onClick={() => excluiMusica(f)}>Excluir</button></div></div></div>)}
+            </div>
+          </section>
+
           <section className="jobs-section" id="acervo">
             <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
             {acervo.animes.length > 0 && (
@@ -251,6 +354,57 @@ export default function Page() {
                 <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
               </table>
             )}
+          </section>
+
+          <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
+            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um quinto para o destaque, sem repetir.</p></div><span className="step-label">1280 × 720</span></div>
+            <div className="form-body" style={{ marginTop: 20 }}>
+              <div className="form-footer">
+                <p className="helper">Usa as imagens já preparadas em public/gerado/. O número de animes vem do último quiz.</p>
+                <div className="actions"><button className="primary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Sorteando…" : thumbUrl ? "Sortear novamente" : "Gerar thumbnail"}</button></div>
+              </div>
+              {thumbUrl && <div style={{ marginTop: 20 }}>
+<Image
+  src={thumbUrl}
+  alt="Prévia da thumbnail gerada"
+  width={1280}
+  height={720}
+  unoptimized
+  style={{
+    display: "block",
+    width: "100%",
+    maxWidth: 900,
+    height: "auto",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+  }}
+/>                <div className="actions" style={{ marginTop: 12 }}><a className="secondary" href={thumbUrl} download="thumbnail-quiz.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a></div>
+              </div>}
+              {thumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{thumbMsg}</p>}
+            </div>
+          </section>
+
+          <section className="composer" id="tags" style={{ marginTop: 14 }}>
+            <div className="section-head"><div><h2>Tags para YouTube</h2><p>Gera tags com base nos animes, gêneros e informações do último projeto produzido.</p></div><span className="step-label">Publicação</span></div>
+            <div className="form-body" style={{ marginTop: 20 }}>
+              <div className="fields">
+                <label>Tipo de vídeo
+                  <select value={tipoTags} onChange={(e) => { setTipoTags(e.target.value as "quiz" | "top"); setTags(""); setTagsMsg(""); }}>
+                    <option value="top">Top 10 / Top Short</option>
+                    <option value="quiz">Quiz de animes (zoom ou 4 imagens)</option>
+                  </select>
+                </label>
+              </div>
+              <div className="form-footer">
+                <p className="helper">As tags são sugeridas a partir dos dados já gerados. Confira antes de publicar; o painel não envia nada ao YouTube.</p>
+                <div className="actions"><button className="primary" onClick={gerarTags} disabled={tagsLoading}>{tagsLoading ? "Gerando…" : "Gerar tags"}</button></div>
+              </div>
+              {tags && <label>Tags (separadas por vírgula)
+                <textarea value={tags} readOnly rows={4} style={{ width: "100%", resize: "vertical" }} />
+              </label>}
+              {tags && <div className="actions"><button className="secondary" onClick={copiarTags}>Copiar tags</button></div>}
+              {tagsMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{tagsMsg}</p>}
+            </div>
           </section>
 
           <section className="jobs-section" id="saidas">
