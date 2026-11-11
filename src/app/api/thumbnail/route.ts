@@ -91,10 +91,8 @@ export async function POST() {
 
     const detalhes = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#12d9ef"/><stop offset="1" stop-color="#0874c7"/></linearGradient>
         <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
       </defs>
-      <rect width="1280" height="720" fill="url(#fundo)"/>
       <path d="M0 590H1280V720H0Z" fill="#07111d" opacity=".78"/>
       ${quadros.map((q) => moldura(q.x, q.y, q.w, q.h, q.rotulo)).join("")}
       <rect x="806" y="12" width="456" height="590" rx="23" fill="none" stroke="#101820" stroke-width="15"/>
