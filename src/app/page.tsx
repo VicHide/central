@@ -342,8 +342,6 @@ export default function Page() {
             </div>
           </section>
 
-</section>
-
           <section className="jobs-section" id="acervo">
             <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
             {acervo.animes.length > 0 && (
@@ -352,7 +350,7 @@ export default function Page() {
                 <tbody>{acervo.animes.map((a) => <tr key={a.pasta}><td>{a.pasta}</td><td>{a.imagens}</td><td>{a.usadas}</td></tr>)}</tbody>
               </table>
             )}
-          
+          </section>
 
           <section className="music-library" id="musicas">
             <div className="music-heading"><div><span className="music-eyebrow">ACERVO DE ÁUDIO</span><h2>Biblioteca de músicas</h2><p>Organize as trilhas usadas na produção dos vídeos.</p></div><span className="music-total"><strong>{faixas.length}</strong><small>faixas no catálogo</small></span></div>
