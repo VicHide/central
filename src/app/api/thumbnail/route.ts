@@ -55,7 +55,7 @@ async function imagemCartao(arquivo: string, numero: number, tamanho: number, ro
     <rect x="3" y="3" width="${tamanho - 6}" height="${tamanho - 6}" rx="20" fill="none" stroke="#101820" stroke-width="12"/>
     <rect x="8" y="8" width="${tamanho - 16}" height="${tamanho - 16}" rx="16" fill="none" stroke="#fff" stroke-width="5"/>
     <rect x="17" y="17" width="58" height="58" rx="15" fill="#e52b36" stroke="#111" stroke-width="5"/>
-    <text x="46" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="39" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${numero}</text>
+    <text x="46" y="60" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="39" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${numero}</text>
   </svg>`);
 
   const cartao = await sharp(imagem)
@@ -102,6 +102,7 @@ export async function POST() {
     }
 
     const sorteados = embaralha(candidatos).slice(0, 4);
+    // Mantém os quatro cards grandes; o PNG central se sobrepõe a eles.
     const tamanho = 260;
     const cartoes = [
       { x: 105, y: 28, rotulo: 1, rotacao: -6 },
@@ -136,12 +137,9 @@ export async function POST() {
 
     camadas.push({ input: pngCentral, left: 345, top: 62 });
 
+    // Contagem sem faixa de fundo, centralizada logo abaixo do PNG.
     const detalhes = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-      <path d="M0 620H1280V720H0Z" fill="#07111d" opacity=".82"/>
-      <text x="28" y="695" font-family="Arial,sans-serif" font-size="100" font-weight="1000" letter-spacing="-5" fill="#f7c642" stroke="#111" stroke-width="15" paint-order="stroke">${dados.length}</text>
-      <text x="280" y="695" font-family="Arial,sans-serif" font-size="88" font-weight="1000" letter-spacing="-4" fill="#fff" stroke="#111" stroke-width="15" paint-order="stroke">ANIMES</text>
-      <rect x="1180" y="682" width="78" height="26" rx="5" fill="#111" opacity=".88"/>
-      <text x="1219" y="701" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="#fff">QUIZ</text>
+      <text x="640" y="704" text-anchor="middle" font-family="Arial Rounded MT Bold,DejaVu Sans,sans-serif" font-size="54" font-weight="900" letter-spacing="-2" fill="#fff" stroke="#101820" stroke-width="12" stroke-linejoin="round" paint-order="stroke">${dados.length} ANIMES</text>
     </svg>`;
 
     const png = await base.composite([...camadas, { input: Buffer.from(detalhes) }]).png().toBuffer();
