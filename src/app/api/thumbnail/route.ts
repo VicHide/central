@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type Registro = {
+  numero?: number;
   capa?: string | null;
   imagem?: string | null;
   imagens?: string[];
@@ -61,23 +62,23 @@ async function imagemCartao(arquivo: string, largura: number, altura: number, co
 async function pngComContorno(arquivo: string) {
   const imagem = await sharp(arquivo)
     .rotate()
-    .resize(570, 570, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(650, 650, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
-  const svg = Buffer.from(`<svg width="630" height="630" xmlns="http://www.w3.org/2000/svg">
+  const svg = Buffer.from(`<svg width="710" height="710" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <filter id="outline" x="-25%" y="-25%" width="150%" height="150%">
-        <feMorphology in="SourceAlpha" operator="dilate" radius="16" result="outer"/>
+        <feMorphology in="SourceAlpha" operator="dilate" radius="17" result="outer"/>
         <feFlood flood-color="#111827" result="dark"/>
         <feComposite in="dark" in2="outer" operator="in" result="darkStroke"/>
-        <feMorphology in="SourceAlpha" operator="dilate" radius="8" result="inner"/>
+        <feMorphology in="SourceAlpha" operator="dilate" radius="9" result="inner"/>
         <feFlood flood-color="#fff" result="light"/>
         <feComposite in="light" in2="inner" operator="in" result="lightStroke"/>
         <feMerge><feMergeNode in="darkStroke"/><feMergeNode in="lightStroke"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     </defs>
-    <image x="30" y="30" width="570" height="570" href="data:image/png;base64,${imagem.toString("base64")}" filter="url(#outline)"/>
+    <image x="30" y="30" width="650" height="650" href="data:image/png;base64,${imagem.toString("base64")}" filter="url(#outline)"/>
   </svg>`);
   return sharp(svg).png().toBuffer();
 }
@@ -97,10 +98,11 @@ export async function POST() {
       return Response.json({ erro: "O último quiz precisa ter pelo menos 4 animes para montar a thumbnail." }, { status: 422 });
     }
 
-    const candidatos = dados.map((registro) => ({
+    const candidatos = dados.map((registro, indice) => ({
       arquivo: arquivoPublico(modo === "zoom" ? registro.imagem : registro.capa) ??
         arquivoPublico(registro.imagens?.[0]),
-    })).filter((item): item is { arquivo: string } => Boolean(item.arquivo));
+      numero: Number.isFinite(registro.numero) ? registro.numero! : indice + 1,
+    })).filter((item): item is { arquivo: string; numero: number } => Boolean(item.arquivo));
 
     if (candidatos.length < 4) {
       return Response.json({ erro: "Encontrei menos de 4 animes com imagens válidas no último quiz." }, { status: 422 });
@@ -150,7 +152,7 @@ export async function POST() {
 
     // O personagem fica acima dos quatro quadros, como elemento principal da composição.
     const pngCentral = await pngComContorno(arquivoPng);
-    camadas.push({ input: pngCentral, left: 325, top: 58 });
+    camadas.push({ input: pngCentral, left: 285, top: 18 });
 
     const elementos = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -158,17 +160,30 @@ export async function POST() {
         <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1ff0f0"/><stop offset="1" stop-color="#168bff"/></linearGradient>
         <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
       </defs>
-      <ellipse cx="640" cy="616" rx="300" ry="32" fill="#000" opacity=".45" filter="url(#shadow)"/>
-      <path d="M770 250 Q830 210 865 165" fill="none" stroke="#101827" stroke-width="34" stroke-linecap="round"/>
-      <path d="M770 250 Q830 210 865 165" fill="none" stroke="url(#cyan)" stroke-width="21" stroke-linecap="round"/>
-      <path d="M836 166 L879 150 L872 195" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-      <circle cx="900" cy="112" r="48" fill="#f33c69" stroke="#fff" stroke-width="9"/>
-      <text x="900" y="137" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="72" font-weight="900" fill="#fff" stroke="#a81745" stroke-width="3" paint-order="stroke">?</text>
-      <rect x="330" y="574" width="620" height="112" rx="28" fill="#101827" stroke="#fff" stroke-width="8"/>
-      <rect x="342" y="586" width="596" height="88" rx="19" fill="#202d4d"/>
-      <text x="640" y="650" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="62" font-weight="1000" letter-spacing="-2" fill="url(#yellow)" stroke="#080d19" stroke-width="15" stroke-linejoin="round" paint-order="stroke">ANIME QUIZ</text>
-      <rect x="1010" y="610" width="220" height="62" rx="20" fill="#fff" stroke="#111827" stroke-width="7"/>
-      <text x="1120" y="652" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="30" font-weight="900" fill="#e33b59">${dados.length} ANIMES</text>
+      <defs>
+        <filter id="badgeGlow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="12" result="blur"/>
+          <feFlood flood-color="#fff" flood-opacity=".95" result="white"/>
+          <feComposite in="white" in2="blur" operator="in" result="glow"/>
+          <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <linearGradient id="badgeFill" x1="0" y1="0" x2="1" y2="1">
+          <stop stop-color="#fff"/><stop offset=".48" stop-color="#ffe56b"/><stop offset="1" stop-color="#ff9d24"/>
+        </linearGradient>
+      </defs>
+      <g font-family="DejaVu Sans,sans-serif" font-weight="900" text-anchor="middle" filter="url(#badgeGlow)">
+        <g><circle cx="76" cy="76" r="43" fill="#15182c" opacity=".75"/><circle cx="76" cy="76" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="76" y="91" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[0].numero}</text></g>
+        <g><circle cx="1204" cy="76" r="43" fill="#15182c" opacity=".75"/><circle cx="1204" cy="76" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="1204" y="91" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[1].numero}</text></g>
+        <g><circle cx="76" cy="644" r="43" fill="#15182c" opacity=".75"/><circle cx="76" cy="644" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="76" y="659" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[2].numero}</text></g>
+        <g><circle cx="1204" cy="644" r="43" fill="#15182c" opacity=".75"/><circle cx="1204" cy="644" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="1204" y="659" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[3].numero}</text></g>
+      </g>
+      <ellipse cx="640" cy="628" rx="330" ry="28" fill="#000" opacity=".35" filter="url(#shadow)"/>
+      <path d="M790 245 Q850 205 885 160" fill="none" stroke="#101827" stroke-width="34" stroke-linecap="round"/>
+      <path d="M790 245 Q850 205 885 160" fill="none" stroke="url(#cyan)" stroke-width="21" stroke-linecap="round"/>
+      <path d="M856 161 L899 145 L892 190" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="920" cy="108" r="48" fill="#f33c69" stroke="#fff" stroke-width="9"/>
+      <text x="920" y="133" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="72" font-weight="900" fill="#fff" stroke="#a81745" stroke-width="3" paint-order="stroke">?</text>
+      <text x="640" y="672" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="82" font-weight="900" letter-spacing="-3" fill="url(#yellow)" stroke="#171329" stroke-width="19" stroke-linejoin="round" paint-order="stroke" style="filter:drop-shadow(0 7px 2px #111)">${dados.length} ANIMES</text>
     </svg>`);
 
     const png = await sharp({ create: { width: 1280, height: 720, channels: 4, background: "#101a32" } })
