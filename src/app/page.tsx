@@ -328,14 +328,14 @@ export default function Page() {
 
           <section className="music-library" id="musicas">
             <div className="music-heading"><div><span className="music-eyebrow">ACERVO DE ÁUDIO</span><h2>Biblioteca de músicas</h2><p>Organize as trilhas usadas na produção dos vídeos.</p></div><span className="music-total"><strong>{faixas.length}</strong><small>faixas no catálogo</small></span></div>
-            <form onSubmit={enviaMusica}>
-              <div className="fields">
+            <form className="music-form" onSubmit={enviaMusica}>
+              <div className="music-fields">
                 <label>Arquivo de áudio<input id="arquivo-musica" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; setMusicaArquivo(f); if (f && !musicaTitulo) setMusicaTitulo(f.name.replace(/\.[^.]+$/, "")); }} /></label>
                 <label>Título<input value={musicaTitulo} onChange={(e) => setMusicaTitulo(e.target.value)} placeholder="Nome da faixa" /></label>
                 <label>Artista<input value={musicaArtista} onChange={(e) => setMusicaArtista(e.target.value)} placeholder="Artista" /></label>
                 <label>Volume (0 a 1)<input type="number" min="0" max="1" step="0.01" value={musicaVolume} onChange={(e) => setMusicaVolume(e.target.value)} /></label>
               </div>
-              <label style={{ marginTop: 14 }}>Crédito para a descrição<textarea value={musicaCredito} onChange={(e) => setMusicaCredito(e.target.value)} rows={2} placeholder="Crédito/licença exigidos pelo autor da música" style={{ width: "100%", resize: "vertical" }} /></label>
+              <label className="music-credit">Crédito para a descrição<textarea value={musicaCredito} onChange={(e) => setMusicaCredito(e.target.value)} rows={2} placeholder="Crédito/licença exigidos pelo autor da música"  /></label>
               <div className="form-footer"><p className="helper">MP3, WAV, OGG, M4A, AAC ou FLAC · até 80 MB. Confira os termos de uso e o crédito antes de publicar.</p><button className="primary" type="submit" disabled={musicaLoading || !musicaArquivo}>{musicaLoading ? "Enviando…" : "Enviar música"}</button></div>
               {musicaMsg && <p className="config-note" role="status">{musicaMsg}</p>}
             </form>
