@@ -330,7 +330,7 @@ export default function Page() {
             <div className="section-head"><div><h2>Biblioteca de músicas</h2><p>Envie uma faixa uma vez; ela entra automaticamente em data/musicas.json e fica disponível para os próximos vídeos.</p></div><span className="step-label">{faixas.length} cadastrada(s)</span></div>
             <form onSubmit={enviaMusica}>
               <div className="fields">
-                <label>Arquivo de áudio<input id="arquivo-musica" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; setMusicaArquivo(f); if (f && !musicaTitulo) setMusicaTitulo(f.name.replace(/\\.[^.]+$/, "")); }} /></label>
+                <label>Arquivo de áudio<input id="arquivo-musica" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.flac,audio/*" onChange={(e) => { const f = e.target.files?.[0] ?? null; setMusicaArquivo(f); if (f && !musicaTitulo) setMusicaTitulo(f.name.replace(/\.[^.]+$/, "")); }} /></label>
                 <label>Título<input value={musicaTitulo} onChange={(e) => setMusicaTitulo(e.target.value)} placeholder="Nome da faixa" /></label>
                 <label>Artista<input value={musicaArtista} onChange={(e) => setMusicaArtista(e.target.value)} placeholder="Artista" /></label>
                 <label>Volume (0 a 1)<input type="number" min="0" max="1" step="0.01" value={musicaVolume} onChange={(e) => setMusicaVolume(e.target.value)} /></label>
