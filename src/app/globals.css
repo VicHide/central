@@ -32,7 +32,7 @@ h1{margin-bottom:9px;font-size:25px;line-height:1.2;font-weight:500;letter-spaci
 .intro-row p,.section-head p,.jobs-heading p{margin:0;color:var(--muted);font-size:13px}
 .duration-mark{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;white-space:nowrap}
 .duration-mark b{font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums}
-.work-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(320px,.85fr);gap:14px;align-items:stretch}
+.work-grid{display:block}.work-grid>.composer{width:100%}
 .composer,.pipeline-panel{min-width:0;padding:23px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border)}
 .section-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
 .section-head h2,.jobs-heading h2{margin:0 0 5px;font-size:16px;font-weight:500;letter-spacing:-.025em}
@@ -63,7 +63,7 @@ input:focus,select:focus{border-color:var(--accent);outline:2px solid var(--acce
 .pipeline-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--rule);display:flex;gap:8px;align-items:center;color:var(--faint);font-size:11px}
 .pipeline-panel{display:flex;flex-direction:column}
 .signal{width:6px;height:6px;border-radius:50%;background:#51724f}
-.jobs-section{margin-top:35px}
+.jobs-section{margin-top:24px}
 .jobs-heading{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
 .job-count{color:var(--faint);font-size:11px}
 .jobs-list{border-top:1px solid var(--border)}
@@ -93,7 +93,7 @@ th,td{text-align:left;padding:9px 2px;border-bottom:1px solid var(--rule)}
 th{color:var(--faint);font-weight:500;font-size:11px}
 .footer{display:flex;justify-content:space-between;margin-top:48px;padding-top:15px;border-top:1px solid var(--rule);color:#777067;font-size:11px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-@media(max-width:1000px){.sidebar{width:190px}.main{margin-left:190px}.work-grid{grid-template-columns:1fr}.production-stages{grid-template-columns:1fr}}
+@media(max-width:1000px){.sidebar{width:190px}.main{margin-left:190px}.production-stages{grid-template-columns:1fr}}
 @media(max-width:760px){.sidebar{position:static;width:auto;flex-direction:row;align-items:center;padding:12px 14px;border-right:0;border-bottom:1px solid var(--border)}.sidebar nav,.sidebar-note{display:none}.main{margin-left:0}.workspace{padding:28px 16px}.topbar{padding:0 16px}.job-row{grid-template-columns:1fr auto}.job-stage{grid-column:1}.intro-row{flex-direction:column;align-items:flex-start}}
 details.avancado{margin-top:18px;border-top:1px solid var(--rule);padding-top:12px}
 details.avancado summary{cursor:pointer;color:var(--muted);font-size:12px}
@@ -146,7 +146,7 @@ details.avancado summary{cursor:pointer;color:var(--muted);font-size:12px}
 
 
 /* Biblioteca de músicas */
-.music-library{margin-top:14px;padding:26px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.music-library{margin-top:24px;padding:26px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
 .music-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--rule)}
 .music-eyebrow{display:block;margin-bottom:7px;color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.14em}
 .music-heading h2{margin:0 0 6px;font-size:19px;font-weight:500;letter-spacing:-.035em}
