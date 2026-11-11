@@ -119,15 +119,23 @@ export async function POST() {
     const fundo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop stop-color="#101a32"/><stop offset=".52" stop-color="#19234a"/><stop offset="1" stop-color="#10172d"/>
+          <stop stop-color="#ff4f87"/><stop offset=".28" stop-color="#ff9d35"/><stop offset=".58" stop-color="#7358e8"/><stop offset=".82" stop-color="#16b9d4"/><stop offset="1" stop-color="#25d6a2"/>
         </linearGradient>
-        <radialGradient id="light"><stop stop-color="#4a4fa0" stop-opacity=".8"/><stop offset="1" stop-color="#171d3b" stop-opacity="0"/></radialGradient>
-        <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.5" fill="#fff" opacity=".12"/></pattern>
+        <radialGradient id="glow"><stop stop-color="#fff" stop-opacity=".32"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <pattern id="grain" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.6" fill="#fff" opacity=".2"/></pattern>
       </defs>
       <rect width="1280" height="720" fill="url(#bg)"/>
-      <ellipse cx="640" cy="350" rx="620" ry="470" fill="url(#light)"/>
-      <rect width="1280" height="720" fill="url(#dots)"/>
-      <path d="M0 360 Q320 280 640 360 T1280 360" fill="none" stroke="#fff" stroke-opacity=".05" stroke-width="2"/>
+      <ellipse cx="640" cy="340" rx="680" ry="480" fill="url(#glow)"/>
+      <g fill="none" stroke="#fff" stroke-width="17" stroke-linecap="square" opacity=".96">
+        <path d="M-120 115 L250 -80 M-90 180 L315 -35 M1010 805 L1390 425 M950 790 L1330 410"/>
+        <path d="M520 -90 L700 90 M580 -110 L760 70 M-80 570 L70 720 M-20 545 L125 690" stroke-width="11"/>
+      </g>
+      <g fill="#fff" opacity=".94">
+        <path d="M0 330 L0 365 L250 115 L215 115 Z"/>
+        <path d="M1030 720 L1065 720 L1280 505 L1280 470 Z"/>
+        <circle cx="640" cy="360" r="7"/><circle cx="670" cy="360" r="7"/><circle cx="700" cy="360" r="7"/>
+      </g>
+      <rect width="1280" height="720" fill="url(#grain)"/>
     </svg>`);
 
     const camadas: OverlayOptions[] = [{ input: fundo, left: 0, top: 0 }];
