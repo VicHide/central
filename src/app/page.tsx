@@ -68,6 +68,11 @@ export default function Page() {
   const [thumbUrl, setThumbUrl] = useState("");
   const [thumbMsg, setThumbMsg] = useState("");
   const [thumbLoading, setThumbLoading] = useState(false);
+  const [topThumbUrl, setTopThumbUrl] = useState("");
+  const [topThumbMsg, setTopThumbMsg] = useState("");
+  const [topThumbLoading, setTopThumbLoading] = useState(false);
+  const [topThumbRank, setTopThumbRank] = useState("1");
+  const [topThumbChamada, setTopThumbChamada] = useState("ANIMES MAIS ASSISTIDOS NO MUNDO");
   const [faixas, setFaixas] = useState<Faixa[]>([]);
   const [musicaArquivo, setMusicaArquivo] = useState<File | null>(null);
   const [musicaTitulo, setMusicaTitulo] = useState("");
@@ -171,6 +176,26 @@ export default function Page() {
     finally { setThumbLoading(false); }
   };
 
+
+  const gerarThumbnailTop = async () => {
+    setTopThumbLoading(true); setTopThumbMsg("");
+    try {
+      const r = await fetch("/api/thumbnail/top10", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rank: Number(topThumbRank), chamada: topThumbChamada }),
+      });
+      if (!r.ok) {
+        const d = await r.json();
+        throw new Error(d.erro ?? "Não foi possível gerar a thumbnail do Top 10.");
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      setTopThumbUrl((anterior) => { if (anterior) URL.revokeObjectURL(anterior); return url; });
+      setTopThumbMsg("Thumbnail vertical gerada. Confira a prévia e salve o PNG.");
+    } catch (e) { setTopThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail do Top 10."); }
+    finally { setTopThumbLoading(false); }
+  };
 
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
@@ -378,6 +403,45 @@ export default function Page() {
                 </div>
               </div>}
               {thumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{thumbMsg}</p>}
+            </div>
+          </section>
+
+          <section className="composer" id="thumbnail-top10" style={{ marginTop: 14 }}>
+            <div className="section-head">
+              <div><h2>Thumbnail · Top 10 Shorts</h2><p>Cria uma arte vertical a partir das capas do último ranking gerado.</p></div>
+              <span className="step-label">1080 × 1920 · 9:16</span>
+            </div>
+            <div className="form-body" style={{ marginTop: 20 }}>
+              <div className="fields">
+                <label>Anime em destaque
+                  <select value={topThumbRank} onChange={(e) => setTopThumbRank(e.target.value)}>
+                    {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Posição {i + 1}</option>)}
+                  </select>
+                </label>
+                <label>Chamada principal
+                  <input value={topThumbChamada} maxLength={90} onChange={(e) => setTopThumbChamada(e.target.value)} placeholder="ANIMES MAIS ASSISTIDOS NO MUNDO" />
+                </label>
+              </div>
+              <div className="form-footer">
+                <p className="helper">Usa a capa da posição escolhida como destaque e fundo. Gere um Top primeiro para preparar as capas. Não usa removedor de fundo nem serviços externos.</p>
+                <div className="actions">
+                  <button className="primary" onClick={gerarThumbnailTop} disabled={topThumbLoading}>{topThumbLoading ? "Montando thumbnail…" : topThumbUrl ? "Gerar novamente" : "Gerar thumbnail vertical"}</button>
+                </div>
+              </div>
+              {topThumbUrl && <div style={{ marginTop: 20 }}>
+                <Image
+                  src={topThumbUrl}
+                  alt="Prévia da thumbnail vertical do Top 10"
+                  width={1080}
+                  height={1920}
+                  unoptimized
+                  style={{ display: "block", width: "100%", maxWidth: 420, height: "auto", borderRadius: 10, border: "1px solid var(--border)" }}
+                />
+                <div className="actions" style={{ marginTop: 12 }}>
+                  <a className="secondary" href={topThumbUrl} download="thumbnail-top10-shorts.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a>
+                </div>
+              </div>}
+              {topThumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{topThumbMsg}</p>}
             </div>
           </section>
 
