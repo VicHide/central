@@ -51,14 +51,18 @@ async function imagemCartao(arquivo: string, largura: number, altura: number, co
     .png()
     .toBuffer();
 
-  const moldura = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="4" y="4" width="${largura - 8}" height="${altura - 8}" rx="30" fill="none" stroke="#111827" stroke-width="18"/>
-    <rect x="7" y="7" width="${largura - 14}" height="${altura - 14}" rx="27" fill="none" stroke="#fff" stroke-width="13"/>
-    <rect x="14" y="14" width="${largura - 28}" height="${altura - 28}" rx="21" fill="none" stroke="${cor}" stroke-width="7"/>
+  // A própria imagem é recortada pelo clipPath; a moldura sozinha não impede vazamentos nos cantos.
+  const svg = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="cardClip"><rect x="5" y="5" width="${largura - 10}" height="${altura - 10}" rx="27"/></clipPath>
+    </defs>
+    <image x="5" y="5" width="${largura - 10}" height="${altura - 10}" href="data:image/png;base64,${imagem.toString("base64")}" preserveAspectRatio="none" clip-path="url(#cardClip)"/>
+    <rect x="5" y="5" width="${largura - 10}" height="${altura - 10}" rx="27" fill="none" stroke="#111827" stroke-width="17"/>
+    <rect x="8" y="8" width="${largura - 16}" height="${altura - 16}" rx="24" fill="none" stroke="#fff" stroke-width="11"/>
+    <rect x="14" y="14" width="${largura - 28}" height="${altura - 28}" rx="19" fill="none" stroke="${cor}" stroke-width="6"/>
   </svg>`);
-  return sharp(imagem).composite([{ input: moldura }]).png().toBuffer();
+  return sharp(svg).png().toBuffer();
 }
-
 async function pngComContorno(arquivo: string) {
   const imagem = await sharp(arquivo)
     .rotate()
@@ -109,13 +113,13 @@ export async function POST() {
     }
 
     const sorteados = embaralha(candidatos).slice(0, 4);
-    const largura = 590;
-    const altura = 300;
+    const largura = 610;
+    const altura = 320;
     const cartoes = [
-      { x: 24, y: 24, cor: "#ff9c32" },
-      { x: 666, y: 24, cor: "#19d4e8" },
-      { x: 24, y: 396, cor: "#a879ff" },
-      { x: 666, y: 396, cor: "#ff4d88" },
+      { x: 18, y: 18, cor: "#ff9c32" },
+      { x: 652, y: 18, cor: "#19d4e8" },
+      { x: 18, y: 382, cor: "#a879ff" },
+      { x: 652, y: 382, cor: "#ff4d88" },
     ];
 
     const fundo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
@@ -178,9 +182,6 @@ export async function POST() {
         <g><circle cx="1204" cy="644" r="43" fill="#15182c" opacity=".75"/><circle cx="1204" cy="644" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="1204" y="659" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[3].numero}</text></g>
       </g>
       <ellipse cx="640" cy="628" rx="330" ry="28" fill="#000" opacity=".35" filter="url(#shadow)"/>
-      <path d="M790 245 Q850 205 885 160" fill="none" stroke="#101827" stroke-width="34" stroke-linecap="round"/>
-      <path d="M790 245 Q850 205 885 160" fill="none" stroke="url(#cyan)" stroke-width="21" stroke-linecap="round"/>
-      <path d="M856 161 L899 145 L892 190" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
       <circle cx="920" cy="108" r="48" fill="#f33c69" stroke="#fff" stroke-width="9"/>
       <text x="920" y="133" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="72" font-weight="900" fill="#fff" stroke="#a81745" stroke-width="3" paint-order="stroke">?</text>
       <text x="640" y="672" text-anchor="middle" font-family="Impact, DejaVu Sans Condensed, sans-serif" font-size="88" font-weight="900" letter-spacing="-2" fill="url(#yellow)" stroke="#171329" stroke-width="19" stroke-linejoin="round" paint-order="stroke" style="filter:drop-shadow(0 7px 2px #111)">${dados.length} ANIMES</text>
