@@ -177,7 +177,7 @@ export async function POST() {
     }
 
     const pngCentral = await pngComContorno(arquivoPng);
-    camadas.push({ input: pngCentral, left: 335, top: 72 });
+    camadas.push({ input: pngCentral, left: 335, top: 42 });
 
     const titulo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
       <defs>
