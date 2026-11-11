@@ -38,6 +38,12 @@ class QueueService:
         self.current_key = None
         self.last_error = None
         self.last_summary = None
+        self.logs = []
+
+    def log_event(self, message: str, level: str = "info"):
+        self.logs.append({"time": time.time(), "level": level, "message": message})
+        if len(self.logs) > 300:
+            del self.logs[:-300]
 
     def catalog_page(self, query: str, page: int):
         matches = [
@@ -113,6 +119,38 @@ class QueueService:
                 "current_image_id": None,
                 "folder": str(folder),
             })
+            self.log_event(f"Episódio adicionado: {anime.title} · {episode.title}.", "success")
+            return self.snapshot()
+
+    def remove(self, key: str):
+        with self.lock:
+            if self.active:
+                raise RuntimeError("Pause ou encerre a fila antes de remover episódios.")
+            item = next((entry for entry in self.items if entry["key"] == key), None)
+            if item is None:
+                raise ValueError("Episódio não encontrado na fila.")
+            if item["status"] != "waiting":
+                raise ValueError("Só é possível remover episódios que ainda aguardam.")
+            self.items.remove(item)
+            self.log_event(f"Removido da fila: {item['anime_title']} · {item['episode_title']}.", "warning")
+            return self.snapshot()
+
+    def move(self, key: str, direction: str):
+        with self.lock:
+            if self.active:
+                raise RuntimeError("Pause ou encerre a fila antes de reordenar episódios.")
+            indexes = [i for i, item in enumerate(self.items) if item["status"] == "waiting"]
+            current = next((i for i in indexes if self.items[i]["key"] == key), None)
+            if current is None:
+                raise ValueError("Episódio aguardando não encontrado.")
+            position = indexes.index(current)
+            target_position = position - 1 if direction == "up" else position + 1
+            if target_position < 0 or target_position >= len(indexes):
+                return self.snapshot()
+            target = indexes[target_position]
+            self.items[current], self.items[target] = self.items[target], self.items[current]
+            moved = self.items[target]
+            self.log_event(f"Ordem atualizada: {moved['anime_title']} · {moved['episode_title']}.", "info")
             return self.snapshot()
 
     def snapshot(self):
@@ -136,6 +174,7 @@ class QueueService:
                 "totals": totals,
                 "last_error": self.last_error,
                 "last_summary": self.last_summary,
+                "logs": self.logs[-100:],
                 "project_root": str(Path(__file__).resolve().parents[1]),
                 "download_dir": str(DOWNLOAD_DIR.resolve()),
             }
@@ -150,6 +189,7 @@ class QueueService:
             self.cancel_event.clear()
             self.pause_event.clear()
             self.active = True
+            self.log_event(f"Fila iniciada com {len(pending)} episódio(s).", "success")
             self.last_error = None
             self.last_summary = None
             self.worker = threading.Thread(target=self._run, args=(pending,), daemon=True)
@@ -161,6 +201,7 @@ class QueueService:
             if not self.active:
                 raise RuntimeError("Não existe uma fila em andamento.")
             self.pause_event.set()
+            self.log_event("Fila pausada pelo usuário.", "warning")
             return self.snapshot()
 
     def resume(self):
@@ -168,6 +209,7 @@ class QueueService:
             if not self.active:
                 raise RuntimeError("Não existe uma fila pausada.")
             self.pause_event.clear()
+            self.log_event("Fila retomada.", "success")
             return self.snapshot()
 
     def clear(self):
@@ -186,7 +228,9 @@ class QueueService:
             worker.join()
 
         with self.lock:
+            removed_count = len(self.items)
             self.items.clear()
+            self.log_event(f"Fila limpa: {removed_count} episódio(s) removido(s).", "warning")
             self.current_key = None
             self.last_error = None
             self.last_summary = None
@@ -229,10 +273,12 @@ class QueueService:
                         item["current_image_id"] = image_id
                         if result.status == "downloaded":
                             item["downloaded"] += 1
+                            self.log_event(f"Imagem {image_id} baixada · {item['anime_title']} · {item['episode_title']}.", "success")
                         elif result.status == "skipped":
                             item["skipped"] += 1
                         else:
                             item["errors"] += 1
+                            self.log_event(f"Falha na imagem {image_id} · {item['anime_title']} · {item['episode_title']}.", "error")
 
                     if self.cancel_event.is_set():
                         break
@@ -257,22 +303,23 @@ class QueueService:
                     current["status"] = "blocked"
                     current["current_image_id"] = None
                 self.last_error = str(exc)
+            self.log_event(f"Bloqueio do servidor: {exc}", "error")
         except Exception as exc:
             with self.lock:
                 current = next((x for x in self.items if x["key"] == self.current_key), None)
                 if current:
                     current["status"] = "error"
                 self.last_error = str(exc)
+                self.log_event(f"Erro na fila: {exc}", "error")
         finally:
             with self.lock:
                 self.active = False
                 self.pause_event.clear()
                 self.current_key = None
                 totals = self.snapshot()["totals"]
-                self.last_summary = {
-                    **totals,
-                    "result": "blocked" if blocked else "error" if self.last_error else "completed",
-                }
+                result = "blocked" if blocked else "error" if self.last_error else "completed"
+                self.last_summary = {**totals, "result": result}
+                self.log_event(f"Fila finalizada: {totals['downloaded']} baixadas, {totals['skipped']} existentes e {totals['errors']} erros.", "error" if result != "completed" else "success")
 
 
 frame_service = FrameAnalysisService()
