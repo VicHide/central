@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { randomInt } from "node:crypto";
 
 export const dynamic = "force-dynamic";
@@ -164,7 +164,7 @@ export async function POST() {
       <rect x="14" y="14" width="1252" height="692" rx="29" fill="none" stroke="#f2f2f2" stroke-width="5"/>
     </svg>`);
 
-    const camadas: sharp.OverlayOptions[] = [{ input: fundo, left: 0, top: 0 }];
+    const camadas: OverlayOptions[] = [{ input: fundo, left: 0, top: 0 }];
 
     for (let i = 0; i < cartoes.length; i++) {
       const q = cartoes[i];

@@ -10,10 +10,30 @@ const g = globalThis as unknown as { __jobs?: Job[]; __studio?: ChildProcess; __
 const arquivoJobs = path.join(process.cwd(), "data", "jobs.json");
 if (!g.__jobsLoaded) {
   try {
-    const salvos = JSON.parse(fs.readFileSync(arquivoJobs, "utf8")) as Job[];
-    g.__jobs = salvos.map((j) => j.status === "rodando" ? { ...j, status: "erro", fim: Date.now(), etapa: "Interrompido", detalhe: "O processo foi reiniciado; a tarefa não continuou.", log: [...j.log, "Execução interrompida por reinicialização do painel."] } : j).slice(-100);
-  } catch { g.__jobs = []; }
-  g.__jobsLoaded = true;
+  const salvos = JSON.parse(fs.readFileSync(arquivoJobs, "utf8")) as Job[];
+
+  g.__jobs = salvos
+    .map((j): Job =>
+      j.status === "rodando"
+        ? {
+            ...j,
+            status: "erro",
+            fim: Date.now(),
+            etapa: "Interrompido",
+            detalhe: "O processo foi reiniciado; a tarefa não continuou.",
+            log: [
+              ...j.log,
+              "Execução interrompida por reinicialização do painel.",
+            ],
+          }
+        : j
+    )
+    .slice(-100);
+} catch {
+  g.__jobs = [];
+}
+
+g.__jobsLoaded = true;
 }
 const jobs: Job[] = (g.__jobs ??= []);
 function persisteJobs() {

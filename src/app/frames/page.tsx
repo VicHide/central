@@ -1,8 +1,12 @@
+
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type AnimeFolder = { pasta: string; imagens: number; usadas: number };
+
 type Snapshot = {
   status: "idle" | "running" | "completed" | "error";
   anime: string | null;
@@ -14,7 +18,18 @@ type Snapshot = {
   deleted_count: number;
   error: string | null;
 };
-const empty: Snapshot = { status: "idle", anime: null, total: 0, processed: 0, progress: 0, selected: [], discarded: [], deleted_count: 0, error: null };
+
+const empty: Snapshot = {
+  status: "idle",
+  anime: null,
+  total: 0,
+  processed: 0,
+  progress: 0,
+  selected: [],
+  discarded: [],
+  deleted_count: 0,
+  error: null,
+};
 
 function imageUrl(anime: string, file: string) {
   return "/api/acervo/imagem?anime=" + encodeURIComponent(anime) + "&arquivo=" + encodeURIComponent(file);
@@ -35,43 +50,92 @@ export default function FramesPage() {
         fetch("/api/acervo", { cache: "no-store" }).then(r => r.json()),
         fetch("/api/frames", { cache: "no-store" }).then(r => r.json()),
       ]);
+
       setFolders((a.animes || []).filter((x: AnimeFolder) => x.imagens > 0));
       setSnapshot(f);
-      if (!anime && a.animes?.length) setAnime(a.animes.find((x: AnimeFolder) => x.imagens > 0)?.pasta || "");
-    } catch { setMessage("Não foi possível consultar o acervo ou o serviço de análise."); }
+
+      if (!anime && a.animes?.length) {
+        setAnime(a.animes.find((x: AnimeFolder) => x.imagens > 0)?.pasta || "");
+      }
+    } catch {
+      setMessage("Não foi possível consultar o acervo ou o serviço de análise.");
+    }
   }, [anime]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
   useEffect(() => {
     if (snapshot.status !== "running") return;
-    const timer = window.setInterval(() => { void refresh(); }, 1000);
+
+    const timer = window.setInterval(() => {
+      void refresh();
+    }, 1000);
+
     return () => window.clearInterval(timer);
   }, [snapshot.status, refresh]);
 
   const analyze = async () => {
     if (!anime || loading || snapshot.status === "running") return;
-    setLoading(true); setMessage("");
+
+    setLoading(true);
+    setMessage("");
+
     try {
-      const response = await fetch("/api/frames", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "analyze", anime, threshold }) });
+      const response = await fetch("/api/frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "analyze", anime, threshold }),
+      });
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.erro || "Não foi possível iniciar a análise.");
-      setSnapshot(data); setTab("selected");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Erro ao iniciar análise."); }
-    finally { setLoading(false); }
+
+      if (!response.ok) {
+        throw new Error(data.erro || "Não foi possível iniciar a análise.");
+      }
+
+      setSnapshot(data);
+      setTab("selected");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Erro ao iniciar análise.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteDiscarded = async () => {
     if (!anime || !snapshot.discarded.length) return;
-    const ok = window.confirm("Excluir " + snapshot.discarded.length + " imagens redundantes da pasta " + anime + "? Os frames selecionados serão preservados. Essa ação não pode ser desfeita.");
+
+    const ok = window.confirm(
+      "Excluir " + snapshot.discarded.length + " imagens redundantes da pasta " + anime + "? Os frames selecionados serão preservados. Essa ação não pode ser desfeita."
+    );
+
     if (!ok) return;
-    setLoading(true); setMessage("");
+
+    setLoading(true);
+    setMessage("");
+
     try {
-      const response = await fetch("/api/frames", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", anime, confirmed: true }) });
+      const response = await fetch("/api/frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", anime, confirmed: true }),
+      });
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.erro || "Não foi possível excluir os arquivos.");
-      setSnapshot(data); setMessage(data.deleted + " imagens redundantes excluídas.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Erro ao excluir imagens."); }
-    finally { setLoading(false); }
+
+      if (!response.ok) {
+        throw new Error(data.erro || "Não foi possível excluir os arquivos.");
+      }
+
+      setSnapshot(data);
+      setMessage(data.deleted + " imagens redundantes excluídas.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Erro ao excluir imagens.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const files = tab === "selected" ? snapshot.selected : snapshot.discarded;
@@ -79,35 +143,157 @@ export default function FramesPage() {
   const discardedCount = snapshot.discarded.length;
   const canDelete = snapshot.status === "completed" && snapshot.anime === anime && discardedCount > 0;
 
-  return <main className="frames-workspace">
-    <header className="frames-heading">
-      <div><a className="frames-back" href="/">← Voltar à central</a><p className="frames-kicker">FERRAMENTAS DO ACERVO</p><h1>Detector de frames semelhantes</h1><p className="frames-lead">Encontre imagens quase repetidas com comparação perceptual. A análise não altera os arquivos.</p></div>
-      <span className={"frames-status " + snapshot.status}>{snapshot.status === "running" ? "Analisando" : snapshot.status === "completed" ? "Análise concluída" : snapshot.status === "error" ? "Erro na análise" : "Pronto"}</span>
-    </header>
+  return (
+    <main className="frames-workspace">
+      <header className="frames-heading">
+        <div>
+          <Link className="frames-back" href="/">
+            ← Voltar à central
+          </Link>
+          <p className="frames-kicker">FERRAMENTAS DO ACERVO</p>
+          <h1>Detector de frames semelhantes</h1>
+          <p className="frames-lead">
+            Encontre imagens quase repetidas com comparação perceptual. A análise não altera os arquivos.
+          </p>
+        </div>
 
-    <section className="frames-settings">
-      <div className="frames-field"><label htmlFor="frames-anime">Pasta do anime</label><select id="frames-anime" value={anime} onChange={e => { setAnime(e.target.value); setSnapshot(empty); setMessage(""); }}><option value="">Selecione uma pasta</option>{folders.map(f => <option key={f.pasta} value={f.pasta}>{f.pasta} · {f.imagens} imagens</option>)}</select></div>
-      <div className="frames-field"><label htmlFor="frames-threshold">Sensibilidade <strong>{threshold}</strong></label><input id="frames-threshold" type="range" min="0" max="16" step="1" value={threshold} onChange={e => setThreshold(Number(e.target.value))} /><small>Menor = comparação mais rigorosa · maior = considera mais imagens semelhantes</small></div>
-      <button className="frames-primary" onClick={analyze} disabled={!anime || loading || snapshot.status === "running"}>{snapshot.status === "running" ? "Analisando…" : "Analisar pasta"}</button>
-    </section>
+        <span className={"frames-status " + snapshot.status}>
+          {snapshot.status === "running"
+            ? "Analisando"
+            : snapshot.status === "completed"
+              ? "Análise concluída"
+              : snapshot.status === "error"
+                ? "Erro na análise"
+                : "Pronto"}
+        </span>
+      </header>
 
-    {snapshot.status === "running" && <section className="frames-progress"><div><strong>Analisando imagens</strong><span>{snapshot.processed} / {snapshot.total} · {snapshot.progress}%</span></div><progress max={100} value={snapshot.progress}/></section>}
-    {snapshot.status === "error" && <p className="frames-message error">{snapshot.error}</p>}
-    {message && <p className="frames-message">{message}</p>}
+      <section className="frames-settings">
+        <div className="frames-field">
+          <label htmlFor="frames-anime">Pasta do anime</label>
+          <select
+            id="frames-anime"
+            value={anime}
+            onChange={e => {
+              setAnime(e.target.value);
+              setSnapshot(empty);
+              setMessage("");
+            }}
+          >
+            <option value="">Selecione uma pasta</option>
+            {folders.map(f => (
+              <option key={f.pasta} value={f.pasta}>
+                {f.pasta} · {f.imagens} imagens
+              </option>
+            ))}
+          </select>
+        </div>
 
-    <section className="frames-results">
-      <div className="frames-stats">
-        <div><strong>{snapshot.total}</strong><span>Imagens analisadas</span></div>
-        <div><strong>{selectedCount}</strong><span>Frames mantidos</span></div>
-        <div><strong>{discardedCount}</strong><span>Possíveis redundantes</span></div>
-      </div>
-      <div className="frames-tabs">
-        <button className={tab === "selected" ? "active" : ""} onClick={() => setTab("selected")}>Mantidos ({selectedCount})</button>
-        <button className={tab === "discarded" ? "active" : ""} onClick={() => setTab("discarded")}>Semelhantes ({discardedCount})</button>
-        <span>{snapshot.status === "completed" ? "Confira os resultados antes de qualquer exclusão." : "Execute uma análise para visualizar os frames."}</span>
-      </div>
-      {snapshot.status === "completed" && snapshot.anime === anime ? <div className="frames-grid">{files.map(file => <article className="frames-card" key={file}><img src={imageUrl(anime, file)} alt={file} loading="lazy"/><span title={file}>{file}</span></article>)}</div> : <div className="frames-empty">Selecione uma pasta e execute a análise para ver os resultados.</div>}
-      {canDelete && <div className="frames-delete-row"><p>A exclusão remove somente os arquivos listados em “Semelhantes”.</p><button className="frames-danger" disabled={loading} onClick={deleteDiscarded}>Excluir {discardedCount} redundantes…</button></div>}
-    </section>
-  </main>;
+        <div className="frames-field">
+          <label htmlFor="frames-threshold">
+            Sensibilidade <strong>{threshold}</strong>
+          </label>
+          <input
+            id="frames-threshold"
+            type="range"
+            min="0"
+            max="16"
+            step="1"
+            value={threshold}
+            onChange={e => setThreshold(Number(e.target.value))}
+          />
+          <small>Menor = comparação mais rigorosa · maior = considera mais imagens semelhantes</small>
+        </div>
+
+        <button
+          className="frames-primary"
+          onClick={analyze}
+          disabled={!anime || loading || snapshot.status === "running"}
+        >
+          {snapshot.status === "running" ? "Analisando…" : "Analisar pasta"}
+        </button>
+      </section>
+
+      {snapshot.status === "running" && (
+        <section className="frames-progress">
+          <div>
+            <strong>Analisando imagens</strong>
+            <span>{snapshot.processed} / {snapshot.total} · {snapshot.progress}%</span>
+          </div>
+          <progress max={100} value={snapshot.progress} />
+        </section>
+      )}
+
+      {snapshot.status === "error" && (
+        <p className="frames-message error">{snapshot.error}</p>
+      )}
+
+      {message && <p className="frames-message">{message}</p>}
+
+      <section className="frames-results">
+        <div className="frames-stats">
+          <div><strong>{snapshot.total}</strong><span>Imagens analisadas</span></div>
+          <div><strong>{selectedCount}</strong><span>Frames mantidos</span></div>
+          <div><strong>{discardedCount}</strong><span>Possíveis redundantes</span></div>
+        </div>
+
+        <div className="frames-tabs">
+          <button
+            className={tab === "selected" ? "active" : ""}
+            onClick={() => setTab("selected")}
+          >
+            Mantidos ({selectedCount})
+          </button>
+          <button
+            className={tab === "discarded" ? "active" : ""}
+            onClick={() => setTab("discarded")}
+          >
+            Semelhantes ({discardedCount})
+          </button>
+          <span>
+            {snapshot.status === "completed"
+              ? "Confira os resultados antes de qualquer exclusão."
+              : "Execute uma análise para visualizar os frames."}
+          </span>
+        </div>
+
+        {snapshot.status === "completed" && snapshot.anime === anime ? (
+          <div className="frames-grid">
+            {files.map(file => (
+              <article className="frames-card" key={file}>
+                <Image
+                  src={imageUrl(anime, file)}
+                  alt={file}
+                  width={320}
+                  height={220}
+                  sizes="(max-width: 600px) 100vw, (max-width: 1000px) 50vw, 320px"
+                  style={{ width: "100%", height: "auto" }}
+                  loading="lazy"
+                  unoptimized
+                />
+                <span title={file}>{file}</span>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="frames-empty">
+            Selecione uma pasta e execute a análise para ver os resultados.
+          </div>
+        )}
+
+        {canDelete && (
+          <div className="frames-delete-row">
+            <p>A exclusão remove somente os arquivos listados em “Semelhantes”.</p>
+            <button
+              className="frames-danger"
+              disabled={loading}
+              onClick={deleteDiscarded}
+            >
+              Excluir {discardedCount} redundantes…
+            </button>
+          </div>
+        )}
+      </section>
+    </main>
+  );
 }

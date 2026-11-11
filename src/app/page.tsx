@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { estimaDuracao, estimaDuracaoTop } from "@/config";
 import { GENEROS, TEMPORADAS, ORDENS, TAGS, FORMATOS, SITUACOES, PAISES, DURACOES } from "@/core/generos";
+import Image from "next/image";
 
 type Meta = { n: number; render: boolean; duracaoSeg: number; resumo: string; preparo: string };
 type Job = { id: string; titulo: string; status: "rodando" | "ok" | "erro"; inicio: number; fim?: number; log: string[]; etapa?: string; pct?: number; eta?: number; detalhe?: string; meta?: Meta };
@@ -363,8 +364,21 @@ export default function Page() {
                 <div className="actions"><button className="primary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Sorteando…" : thumbUrl ? "Sortear novamente" : "Gerar thumbnail"}</button></div>
               </div>
               {thumbUrl && <div style={{ marginTop: 20 }}>
-                <img src={thumbUrl} alt="Prévia da thumbnail gerada" style={{ display: "block", width: "100%", maxWidth: 900, height: "auto", borderRadius: 10, border: "1px solid var(--border)" }} />
-                <div className="actions" style={{ marginTop: 12 }}><a className="secondary" href={thumbUrl} download="thumbnail-quiz.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a></div>
+<Image
+  src={thumbUrl}
+  alt="Prévia da thumbnail gerada"
+  width={1280}
+  height={720}
+  unoptimized
+  style={{
+    display: "block",
+    width: "100%",
+    maxWidth: 900,
+    height: "auto",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+  }}
+/>                <div className="actions" style={{ marginTop: 12 }}><a className="secondary" href={thumbUrl} download="thumbnail-quiz.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a></div>
               </div>}
               {thumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{thumbMsg}</p>}
             </div>
