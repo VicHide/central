@@ -144,6 +144,7 @@ export default function Page() {
           <a className="nav-link" href="#top">Top 10 (Short)</a>
           <a className="nav-link" href="#projetos">Projetos</a>
           <a className="nav-link" href="#acervo">Acervo</a>
+          <a className="nav-link" href="#thumbnail">Thumbnails</a>
           <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
           <a className="nav-link" href="/picker">Seletor de imagens</a>
