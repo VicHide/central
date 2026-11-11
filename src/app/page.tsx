@@ -68,7 +68,6 @@ export default function Page() {
   const [thumbUrl, setThumbUrl] = useState("");
   const [thumbMsg, setThumbMsg] = useState("");
   const [thumbLoading, setThumbLoading] = useState(false);
-  const [thumbPersonagemArquivo, setThumbPersonagemArquivo] = useState<File | null>(null);
   const [faixas, setFaixas] = useState<Faixa[]>([]);
   const [musicaArquivo, setMusicaArquivo] = useState<File | null>(null);
   const [musicaTitulo, setMusicaTitulo] = useState("");
@@ -171,27 +170,7 @@ export default function Page() {
     } catch (e) { setThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail."); }
     finally { setThumbLoading(false); }
   };
-  const gerarThumbnailPersonagem = async () => {
-    if (!thumbPersonagemArquivo) {
-      setThumbMsg("Selecione uma imagem do personagem primeiro.");
-      return;
-    }
-    setThumbLoading(true); setThumbMsg("");
-    try {
-      const form = new FormData();
-      form.set("imagem", thumbPersonagemArquivo);
-      const r = await fetch("/api/thumbnail/personagem", { method: "POST", body: form });
-      if (!r.ok) {
-        const d = await r.json();
-        throw new Error(d.erro ?? "Não foi possível gerar a thumbnail com personagem.");
-      }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      setThumbUrl((anterior) => { if (anterior) URL.revokeObjectURL(anterior); return url; });
-      setThumbMsg("Thumbnail com personagem gerada. Confira a prévia e salve o PNG.");
-    } catch (e) { setThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail com personagem."); }
-    finally { setThumbLoading(false); }
-  };
+
 
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
@@ -379,29 +358,11 @@ export default function Page() {
           </section>
 
           <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
-            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Escolha entre o modelo atual e a composição com personagem recortado automaticamente.</p></div><span className="step-label">1280 × 720</span></div>
+            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um quinto para o destaque, sem repetir.</p></div><span className="step-label">1280 × 720</span></div>
             <div className="form-body" style={{ marginTop: 20 }}>
               <div className="form-footer">
-                <p className="helper">Modelo atual: sorteia os quadros e usa o PNG de destaque de acervo/pngs/.</p>
-                <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : "Gerar modelo atual"}</button></div>
-              </div>
-              <div style={{ marginTop: 22, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-                <h3 style={{ margin: "0 0 8px" }}>Novo modelo · Personagem</h3>
-                <p className="helper">Envie uma imagem JPG, PNG ou WebP (até 12 MB). O fundo será removido localmente e o personagem receberá contorno.</p>
-                <label style={{ display: "block", marginTop: 14 }}>
-                  Imagem do personagem
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => setThumbPersonagemArquivo(e.target.files?.[0] ?? null)}
-                    style={{ display: "block", marginTop: 8 }}
-                  />
-                </label>
-                <div className="actions" style={{ marginTop: 14 }}>
-                  <button className="primary" onClick={gerarThumbnailPersonagem} disabled={thumbLoading || !thumbPersonagemArquivo}>
-                    {thumbLoading ? "Removendo fundo e montando…" : "Gerar com personagem"}
-                  </button>
-                </div>
+                <p className="helper">Usa as imagens já preparadas em public/gerado/. O número de animes vem do último quiz.</p>
+                <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : "Gerar thumbnail"}</button></div>
               </div>
               {thumbUrl && <div style={{ marginTop: 20 }}>
                 <Image
