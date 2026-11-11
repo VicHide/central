@@ -14,7 +14,9 @@ type Registro = {
 };
 
 const EXT = /\.(jpe?g|png|webp)$/i;
-const raizPublica = path.resolve(process.cwd(), "public");
+const raiz = process.cwd();
+const raizPublica = path.resolve(raiz, "public");
+const pastaPngs = path.resolve(raiz, "acervo", "pngs");
 
 function arquivoPublico(valor: unknown): string | null {
   if (typeof valor !== "string" || !valor.trim()) return null;
@@ -34,86 +36,122 @@ function embaralha<T>(itens: T[]): T[] {
   return copia;
 }
 
-async function imagemArredondada(arquivo: string, largura: number, altura: number) {
-  const mascara = Buffer.from(
-    `<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" rx="22" fill="white"/></svg>`,
-  );
-  return sharp(arquivo)
+function pngAleatorio(): string | null {
+  if (!fs.existsSync(pastaPngs)) return null;
+  const arquivos = fs.readdirSync(pastaPngs, { withFileTypes: true })
+    .filter((item) => item.isFile() && /\.png$/i.test(item.name))
+    .map((item) => path.join(pastaPngs, item.name));
+  return arquivos.length ? arquivos[randomInt(arquivos.length)] : null;
+}
+
+async function imagemCartao(arquivo: string, numero: number, tamanho: number, rotacao: number) {
+  const imagem = await sharp(arquivo)
     .rotate()
-    .resize(largura, altura, { fit: "cover", position: "top" })
-    .composite([{ input: mascara, blend: "dest-in" }])
+    .resize(tamanho, tamanho, { fit: "cover", position: "top" })
+    .png()
+    .toBuffer();
+
+  const arte = Buffer.from(`<svg width="${tamanho}" height="${tamanho}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="3" width="${tamanho - 6}" height="${tamanho - 6}" rx="20" fill="none" stroke="#101820" stroke-width="12"/>
+    <rect x="8" y="8" width="${tamanho - 16}" height="${tamanho - 16}" rx="16" fill="none" stroke="#fff" stroke-width="5"/>
+    <rect x="17" y="17" width="58" height="58" rx="15" fill="#e52b36" stroke="#111" stroke-width="5"/>
+    <text x="46" y="60" text-anchor="middle" font-family="Arial,sans-serif" font-size="39" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${numero}</text>
+  </svg>`);
+
+  const cartao = await sharp(imagem)
+    .composite([{ input: arte }])
+    .png()
+    .toBuffer();
+
+  return sharp(cartao)
+    .rotate(rotacao, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 }
 
-function moldura(x: number, y: number, w: number, h: number, rotulo: string) {
-  const larguras: Record<string, number> = {
-    HARD: 105,
-    MEDIUM: 145,
-    EASY: 95,
-    "VERY EASY": 170,
-  };
-  const larguraRotulo = larguras[rotulo] ?? Math.max(100, rotulo.length * 14 + 30);
-  return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#101820" stroke-width="15"/><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="23" fill="none" stroke="#fff" stroke-width="8"/><rect x="${x + 9}" y="${y + 9}" width="${larguraRotulo}" height="43" rx="19" fill="#e52b36" stroke="#111" stroke-width="4"/><text x="${x + 24}" y="${y + 39}" font-family="Arial, sans-serif" font-size="27" font-weight="900" fill="#fff" stroke="#111" stroke-width="1.5" paint-order="stroke">${rotulo}</text></g>`;
+function sombraCartao(x: number, y: number, tamanho: number, rotacao: number) {
+  const centro = tamanho / 2 + 12;
+  return Buffer.from(`<svg width="${tamanho + 24}" height="${tamanho + 24}" xmlns="http://www.w3.org/2000/svg">
+    <defs><filter id="s"><feGaussianBlur stdDeviation="12"/></filter></defs>
+    <rect x="12" y="12" width="${tamanho}" height="${tamanho}" rx="20" fill="#07111d" opacity=".72" filter="url(#s)" transform="rotate(${rotacao} ${centro} ${centro})"/>
+  </svg>`);
 }
 
 export async function POST() {
   try {
-    const intro = JSON.parse(fs.readFileSync(path.join(process.cwd(), "data", "intro.json"), "utf8")) as { modo?: string };
+    const arquivoPng = pngAleatorio();
+    if (!arquivoPng) {
+      return Response.json({ erro: "Não encontrei arquivos PNG em acervo/pngs. Adicione pelo menos um PNG nessa pasta." }, { status: 422 });
+    }
+
+    const intro = JSON.parse(fs.readFileSync(path.join(raiz, "data", "intro.json"), "utf8")) as { modo?: string };
     const modo = intro.modo === "zoom" ? "zoom" : "quatro";
     const nomeArquivo = modo === "zoom" ? "zoom.json" : "perguntas.json";
-    const dados = JSON.parse(fs.readFileSync(path.join(process.cwd(), "data", nomeArquivo), "utf8")) as Registro[];
-    if (!Array.isArray(dados) || dados.length < 5) {
-      return Response.json({ erro: "O último quiz precisa ter pelo menos 5 animes para montar quatro quadros e um destaque diferente." }, { status: 422 });
+    const dados = JSON.parse(fs.readFileSync(path.join(raiz, "data", nomeArquivo), "utf8")) as Registro[];
+    if (!Array.isArray(dados) || dados.length < 4) {
+      return Response.json({ erro: "O último quiz precisa ter pelo menos 4 animes para montar a thumbnail." }, { status: 422 });
     }
 
     const candidatos = dados.map((registro) => ({
-      anime: registro.anime?.trim() || "Anime",
       arquivo: arquivoPublico(modo === "zoom" ? registro.imagem : registro.capa) ??
         arquivoPublico(registro.imagens?.[0]),
-    })).filter((item): item is { anime: string; arquivo: string } => Boolean(item.arquivo));
+    })).filter((item): item is { arquivo: string } => Boolean(item.arquivo));
 
-    if (candidatos.length < 5) {
-      return Response.json({ erro: "Encontrei menos de 5 animes com imagens válidas no último quiz. Gere o vídeo novamente ou confira as capas em public/gerado/." }, { status: 422 });
+    if (candidatos.length < 4) {
+      return Response.json({ erro: "Encontrei menos de 4 animes com imagens válidas no último quiz." }, { status: 422 });
     }
 
-    const sorteados = embaralha(candidatos).slice(0, 5);
-    const quadros = [
-      { x: 18, y: 18, w: 378, h: 270, rotulo: "HARD" },
-      { x: 412, y: 18, w: 378, h: 270, rotulo: "MEDIUM" },
-      { x: 18, y: 306, w: 378, h: 270, rotulo: "EASY" },
-      { x: 412, y: 306, w: 378, h: 270, rotulo: "VERY EASY" },
+    const sorteados = embaralha(candidatos).slice(0, 4);
+    const tamanho = 260;
+    const cartoes = [
+      { x: 105, y: 28, rotulo: 1, rotacao: -6 },
+      { x: 915, y: 28, rotulo: 2, rotacao: 5 },
+      { x: 105, y: 355, rotulo: 3, rotacao: 4 },
+      { x: 915, y: 355, rotulo: 4, rotacao: -5 },
     ];
-    const composicoes = await Promise.all([
-      ...sorteados.slice(0, 4).map((item, i) => imagemArredondada(item.arquivo, quadros[i].w, quadros[i].h)),
-      imagemArredondada(sorteados[4].arquivo, 456, 590),
-    ]);
 
     const base = sharp({ create: { width: 1280, height: 720, channels: 4, background: "#00bfe9" } });
     const camadas: sharp.OverlayOptions[] = [];
-    quadros.forEach((q, i) => {
-      camadas.push({ input: composicoes[i], left: q.x, top: q.y });
-    });
-    camadas.push({ input: composicoes[4], left: 806, top: 12 });
+
+    for (let i = 0; i < cartoes.length; i++) {
+      const q = cartoes[i];
+      const sombra = sombraCartao(q.x, q.y, tamanho, q.rotacao);
+      camadas.push({ input: sombra, left: q.x - 12, top: q.y - 12 });
+      const cartao = await imagemCartao(sorteados[i].arquivo, q.rotulo, tamanho, q.rotacao);
+      const meta = await sharp(cartao).metadata();
+      const largura = meta.width ?? tamanho;
+      const altura = meta.height ?? tamanho;
+      camadas.push({
+        input: cartao,
+        left: Math.round(q.x + (tamanho - largura) / 2),
+        top: Math.round(q.y + (tamanho - altura) / 2),
+      });
+    }
+
+    const pngCentral = await sharp(arquivoPng)
+      .rotate()
+      .resize(590, 590, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
+
+    camadas.push({ input: pngCentral, left: 345, top: 62 });
 
     const detalhes = `<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="sombra" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
-      </defs>
-      <path d="M0 590H1280V720H0Z" fill="#07111d" opacity=".78"/>
-      ${quadros.map((q) => moldura(q.x, q.y, q.w, q.h, q.rotulo)).join("")}
-      <rect x="806" y="12" width="456" height="590" rx="23" fill="none" stroke="#101820" stroke-width="15"/>
-      <rect x="806" y="12" width="456" height="590" rx="23" fill="none" stroke="#fff" stroke-width="8"/>
-      <path d="M1088 15 C1160 -5 1265 8 1270 88 L1270 172 C1225 175 1185 147 1150 115Z" fill="#fff" stroke="#111" stroke-width="13"/>
-      <text x="1174" y="133" text-anchor="middle" font-family="Arial,sans-serif" font-size="116" font-weight="900" fill="#111">?</text>
-      <text x="28" y="690" font-family="Arial,sans-serif" font-size="100" font-weight="1000" letter-spacing="-5" fill="#f7c642" stroke="#111" stroke-width="15" paint-order="stroke"> ${dados.length} </text>
-      <text x="280" y="690" font-family="Arial,sans-serif" font-size="88" font-weight="1000" letter-spacing="-4" fill="#fff" stroke="#111" stroke-width="15" paint-order="stroke">ANIMES</text>
+      <path d="M0 620H1280V720H0Z" fill="#07111d" opacity=".82"/>
+      <text x="28" y="695" font-family="Arial,sans-serif" font-size="100" font-weight="1000" letter-spacing="-5" fill="#f7c642" stroke="#111" stroke-width="15" paint-order="stroke">${dados.length}</text>
+      <text x="280" y="695" font-family="Arial,sans-serif" font-size="88" font-weight="1000" letter-spacing="-4" fill="#fff" stroke="#111" stroke-width="15" paint-order="stroke">ANIMES</text>
       <rect x="1180" y="682" width="78" height="26" rx="5" fill="#111" opacity=".88"/>
       <text x="1219" y="701" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="#fff">QUIZ</text>
     </svg>`;
-    const svg = Buffer.from(detalhes);
-    const png = await base.composite([...camadas, { input: svg }]).png().toBuffer();
-    return new Response(png, { headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "Content-Disposition": 'inline; filename="thumbnail-quiz.png"' } });
+
+    const png = await base.composite([...camadas, { input: Buffer.from(detalhes) }]).png().toBuffer();
+    return new Response(png, {
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "no-store",
+        "Content-Disposition": 'inline; filename="thumbnail-quiz.png"',
+      },
+    });
   } catch (erro) {
     console.error("Erro ao gerar thumbnail:", erro);
     return Response.json({ erro: "Não foi possível gerar a thumbnail. Confira se existe um quiz preparado." }, { status: 500 });
