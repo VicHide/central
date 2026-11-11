@@ -41,8 +41,9 @@ export async function POST(req: Request) {
   const tipo = body.tipo === "quiz" ? "quiz" : body.tipo === "top" ? "top" : null;
   if (!tipo) return Response.json({ erro: "Tipo de vídeo inválido." }, { status: 400 });
 
-  const arquivo = tipo === "top" ? "top.json" : "perguntas.json";
-  const dados = tipo === "top" ? leJson("top.json") : (leJson("perguntas.json") ?? leJson("zoom.json"));
+  const modoAtual = (leJson("intro.json") as { modo?: string } | null)?.modo;
+  const arquivo = tipo === "top" ? "top.json" : modoAtual === "zoom" ? "zoom.json" : "perguntas.json";
+  const dados = leJson(arquivo);
   if (!Array.isArray(dados) && tipo === "quiz") {
     return Response.json({ erro: "Ainda não há dados de quiz. Gere um vídeo primeiro." }, { status: 404 });
   }
