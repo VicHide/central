@@ -297,7 +297,7 @@ export default function Page() {
           </section>
 
           <section className="jobs-section" id="projetos">
-            <div className="jobs-heading"><div><h2>Projetos</h2><p>Progresso do que está sendo gerado, atualizado a cada 3 segundos.</p></div><span className="job-count">{jobs.length} {jobs.length === 1 ? "tarefa" : "tarefas"}</span></div>
+            <div className="jobs-heading"><div><h2>Gerenciador de produção</h2><p>Execuções atuais e histórico local, preservado mesmo após reiniciar o painel. Atualização a cada 3 segundos.</p></div><span className="job-count">{jobs.filter((j) => j.status === "rodando").length} em andamento · {jobs.filter((j) => j.status === "ok").length} concluídas · {jobs.filter((j) => j.status === "erro").length} com erro</span></div>
             <div className="jobs-list">
               {jobs.length === 0 && <p className="empty-state">Nenhuma tarefa ainda. Gere o primeiro projeto acima.</p>}
               {jobs.map((j, i) => (
