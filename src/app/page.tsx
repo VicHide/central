@@ -68,15 +68,19 @@ export default function Page() {
   const [tagsMsg, setTagsMsg] = useState("");
   const [tagsLoading, setTagsLoading] = useState(false);
   const [thumbs, setThumbs] = useState<{ centro: string; lateral: string }>({ centro: "", lateral: "" });
-  const [thumbSeta, setThumbSeta] = useState(true);
+  const [thumbSeta, setThumbSeta] = useState("auto"); // auto | off | 1..4
+  const [thumbPng, setThumbPng] = useState<File | null>(null);
   const [thumbTema, setThumbTema] = useState("");
   const [thumbMsg, setThumbMsg] = useState("");
   const [thumbLoading, setThumbLoading] = useState(false);
   const [topThumbUrl, setTopThumbUrl] = useState("");
   const [topThumbMsg, setTopThumbMsg] = useState("");
   const [topThumbLoading, setTopThumbLoading] = useState(false);
-  const [topThumbRank, setTopThumbRank] = useState("1");
-  const [topThumbChamada, setTopThumbChamada] = useState("ANIMES MAIS ASSISTIDOS NO MUNDO");
+  const [topThumbRank, setTopThumbRank] = useState("auto");
+  const [topThumbImg, setTopThumbImg] = useState<File | null>(null);
+  const [topDestaque, setTopDestaque] = useState("");
+  const [topLinha2, setTopLinha2] = useState("");
+  const [topLinha3, setTopLinha3] = useState("");
   const [faixas, setFaixas] = useState<Faixa[]>([]);
   const [musicaArquivo, setMusicaArquivo] = useState<File | null>(null);
   const [musicaTitulo, setMusicaTitulo] = useState("");
@@ -222,8 +226,14 @@ export default function Page() {
   const gerarThumbnail = async () => {
     setThumbLoading(true); setThumbMsg("");
     try {
-      const corpo = JSON.stringify({ seta: thumbSeta, tema: thumbTema.trim() || undefined });
-      const pedir = (layout: "centro" | "lateral") => fetch("/api/thumbnail", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...JSON.parse(corpo), layout }) });
+      const pedir = (layout: "centro" | "lateral") => {
+        const f = new FormData();
+        f.append("layout", layout);
+        f.append("seta", thumbSeta);
+        if (thumbTema.trim()) f.append("tema", thumbTema.trim());
+        if (thumbPng) f.append("personagem", thumbPng);
+        return fetch("/api/thumbnail", { method: "POST", body: f });
+      };
       const [rc, rl] = await Promise.all([pedir("centro"), pedir("lateral")]);
       for (const r of [rc, rl]) {
         if (!r.ok) { const d = await r.json(); throw new Error(d.erro ?? "Não foi possível gerar a thumbnail."); }
@@ -243,11 +253,13 @@ export default function Page() {
   const gerarThumbnailTop = async () => {
     setTopThumbLoading(true); setTopThumbMsg("");
     try {
-      const r = await fetch("/api/thumbnail/top10", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rank: Number(topThumbRank), chamada: topThumbChamada }),
-      });
+      const f = new FormData();
+      f.append("rank", topThumbRank);
+      if (topThumbImg) f.append("imagem", topThumbImg);
+      if (topDestaque.trim()) f.append("destaque", topDestaque.trim());
+      if (topLinha2.trim()) f.append("linha2", topLinha2.trim());
+      if (topLinha3.trim()) f.append("linha3", topLinha3.trim());
+      const r = await fetch("/api/thumbnail/top10", { method: "POST", body: f });
       if (!r.ok) {
         const d = await r.json();
         throw new Error(d.erro ?? "Não foi possível gerar a thumbnail do Top 10.");
@@ -611,10 +623,19 @@ export default function Page() {
             <div className="form-body" style={{ marginTop: 20 }}>
               <div className="fields">
                 <label>Tema no título (opcional)<input value={thumbTema} maxLength={18} onChange={(e) => setThumbTema(e.target.value)} placeholder="ex.: OLHOS" /></label>
+                <label>Seta
+                  <select value={thumbSeta} onChange={(e) => setThumbSeta(e.target.value)}>
+                    <option value="auto">Automática (sorteia o quadro)</option>
+                    <option value="off">Sem seta</option>
+                    {[1, 2, 3, 4].map((n) => <option key={n} value={String(n)}>Apontar para o quadro {n}</option>)}
+                  </select>
+                </label>
+                <label>PNG do personagem (opcional)
+                  <input type="file" accept="image/png" onChange={(e) => setThumbPng(e.target.files?.[0] ?? null)} />
+                </label>
               </div>
-              <label className="check"><input type="checkbox" checked={thumbSeta} onChange={(e) => setThumbSeta(e.target.checked)} /> Seta apontando para um quadro</label>
               <div className="form-footer">
-                <p className="helper">Usa as imagens de public/gerado/ e os PNGs de acervo/pngs. PNG com o cabelo cortado no topo combina com a opção lateral.</p>
+                <p className="helper">Automático por padrão: sorteia os quadros do último quiz e um PNG de acervo/pngs. Envie um PNG para escolher o personagem. No formato lateral, os quadros 1 e 3 apontam para 2 e 4.</p>
                 <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : thumbs.centro ? "Sortear outras" : "Gerar thumbnails"}</button></div>
               </div>
               {(thumbs.centro || thumbs.lateral) && <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
@@ -634,22 +655,31 @@ export default function Page() {
 
           <section className="composer" id="thumbnail-top10" style={{ marginTop: 14 }}>
             <div className="section-head">
-              <div><h2>Thumbnail · Top 10 Shorts</h2><p>Cria uma arte vertical a partir das capas do último ranking gerado.</p></div>
+              <div><h2>Thumbnail · Top 10 Shorts</h2><p>Arte vertical com imagem de fundo e as faixas de texto, montada automaticamente a partir do último ranking.</p></div>
               <span className="step-label">1080 × 1920 · 9:16</span>
             </div>
             <div className="form-body" style={{ marginTop: 20 }}>
               <div className="fields">
-                <label>Capa de fundo
+                <label>Imagem de fundo
                   <select value={topThumbRank} onChange={(e) => setTopThumbRank(e.target.value)}>
+                    <option value="auto">Automática (sorteia uma capa)</option>
                     {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Capa {i + 1}</option>)}
                   </select>
                 </label>
-                <label>Chamada principal
-                  <input value={topThumbChamada} maxLength={90} onChange={(e) => setTopThumbChamada(e.target.value)} placeholder="ANIMES MAIS ASSISTIDOS NO MUNDO" />
+                <label>Ou envie a sua imagem (opcional)
+                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTopThumbImg(e.target.files?.[0] ?? null)} />
                 </label>
               </div>
+              <details style={{ marginTop: 14 }}>
+                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>Ajustar os textos (opcional)</summary>
+                <div className="fields" style={{ marginTop: 12 }}>
+                  <label>Palavra em destaque<input value={topDestaque} maxLength={12} onChange={(e) => setTopDestaque(e.target.value)} placeholder="automático (ex.: MELHOR)" /></label>
+                  <label>Faixa amarela<input value={topLinha2} maxLength={16} onChange={(e) => setTopLinha2(e.target.value)} placeholder="automático (ex.: AVALIADOS)" /></label>
+                  <label>Faixa branca<input value={topLinha3} maxLength={34} onChange={(e) => setTopLinha3(e.target.value)} placeholder="automático (ex.: NO MUNDO)" /></label>
+                </div>
+              </details>
               <div className="form-footer">
-                <p className="helper">Escolha qual capa será usada como imagem de fundo. O número serve apenas para selecionar a capa e não aparece na arte.</p>
+                <p className="helper">Tudo sai automático a partir do ranking (quantidade, critério e filtros). Os campos acima só servem para trocar algo na mão.</p>
                 <div className="actions">
                   <button className="primary" onClick={gerarThumbnailTop} disabled={topThumbLoading}>{topThumbLoading ? "Montando thumbnail…" : topThumbUrl ? "Gerar novamente" : "Gerar thumbnail vertical"}</button>
                 </div>

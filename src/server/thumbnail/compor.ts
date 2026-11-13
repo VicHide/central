@@ -7,9 +7,9 @@ export type Segmento = { texto: string; cor: CorTexto };
 export type OpcoesThumb = {
   layout: Layout;
   cartoes: string[]; // 4 imagens (caminhos absolutos)
-  personagem: string; // PNG com fundo transparente
+  personagem: string | Buffer; // PNG com fundo transparente (caminho ou conteúdo enviado)
   titulo: Segmento[][]; // linhas; cada linha tem segmentos (ex.: número em branco + palavra em ouro)
-  seta: boolean;
+  seta: "auto" | "off" | number; // automática, sem seta, ou o índice (0 a 3) do quadro para onde apontar
   seed: number;
 };
 
@@ -117,46 +117,137 @@ function linhaTitulo(seg: Segmento[], cx: number, base: number, tam: number, n: 
   return `<g filter="url(#sombraTxt)">${extrusao}</g>${contorno}${fill}${brilho}`;
 }
 
-// ---------- personagem ----------
+
 type Personagem = { buf: Buffer; w: number; h: number; pad: number; tocaTopo: boolean; tocaBase: boolean };
-export async function personagem(arquivo: string, alvoAltura: number): Promise<Personagem> {
-  const base = sharp(arquivo).rotate().ensureAlpha();
-  const { data, info } = await base.clone().raw().toBuffer({ resolveWithObject: true });
+
+export async function personagem(arquivo: string | Buffer, alvoAltura: number): Promise<Personagem> {
+  const base = sharp(arquivo).rotate().toColourspace("srgb").ensureAlpha();
+  const metaEntrada = await base.metadata();
+
+  if (
+    !metaEntrada.width ||
+    !metaEntrada.height ||
+    metaEntrada.width * metaEntrada.height > 40_000_000
+  ) {
+    throw new Error("PNG_DIMENSOES_INVALIDAS");
+  }
+
+  const { data: pixels, info } = await base.clone().raw().toBuffer({
+    resolveWithObject: true,
+  });
+
   const { width: iw, height: ih } = info;
-  let minX = iw, minY = ih, maxX = -1, maxY = -1, topo = 0, baseTocada = 0;
-  for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
-    if (data[(y * iw + x) * 4 + 3] > 24) {
-      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
-      if (y === 0) topo++; if (y === ih - 1) baseTocada++;
+
+  let minX = iw;
+  let minY = ih;
+  let maxX = -1;
+  let maxY = -1;
+  let topo = 0;
+  let baseTocada = 0;
+  let transparentes = 0;
+
+  for (let y = 0; y < ih; y++) {
+    for (let x = 0; x < iw; x++) {
+      const alfa = pixels[(y * iw + x) * 4 + 3];
+
+      if (alfa < 10) transparentes++;
+
+      if (alfa > 24) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+
+        if (y === 0) topo++;
+        if (y === ih - 1) baseTocada++;
+      }
     }
   }
-  if (maxX < 0) throw new Error("O PNG do personagem está totalmente transparente.");
-  const tocaTopo = topo > iw * 0.04, tocaBase = baseTocada > iw * 0.04;
-  const recorte = await base.clone().extract({ left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 }).resize({ height: alvoAltura }).png().toBuffer();
+
+  if (maxX < 0) throw new Error("PNG_VAZIO");
+
+  if (transparentes < iw * ih * 0.005) {
+    throw new Error("PNG_SEM_TRANSPARENCIA");
+  }
+
+  const tocaTopo = topo > iw * 0.04;
+  const tocaBase = baseTocada > iw * 0.04;
+
+  const recorte = await base
+    .clone()
+    .extract({
+      left: minX,
+      top: minY,
+      width: maxX - minX + 1,
+      height: maxY - minY + 1,
+    })
+    .resize({ height: alvoAltura })
+    .png()
+    .toBuffer();
+
   const meta = await sharp(recorte).metadata();
-  const w = meta.width!, h = meta.height!;
+  const w = meta.width!;
+  const h = meta.height!;
   const pad = 56;
-  const pronto = await sharp(recorte).extend({ top: pad, bottom: pad, left: pad, right: pad, background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+
+  const pronto = await sharp(recorte)
+    .extend({
+      top: pad,
+      bottom: pad,
+      left: pad,
+      right: pad,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+
   const alfa = await sharp(pronto).extractChannel(3).toBuffer();
-  // Expande a silhueta em r pixels: desfoque + corte (borda lisa e arredondada).
-  // O sharp aplica as operações numa ordem fixa (o 2º blur sobrescreve o 1º), então cada etapa é um passo separado.
+
   const expande = async (r: number) => {
     const borrada = await sharp(alfa).blur(r * 0.6).toBuffer();
     const corte = await sharp(borrada).threshold(12).toBuffer();
     return sharp(corte).blur(0.8).toBuffer();
   };
+
   const [escuro, claro] = await Promise.all([expande(25), expande(17)]);
-  const cor = async (mascara: Buffer, rgb: string) => sharp({ create: { width: w + pad * 2, height: h + pad * 2, channels: 3, background: rgb } }).joinChannel(mascara).png().toBuffer();
+
+  const cor = async (mascara: Buffer, rgb: string) =>
+    sharp({
+      create: {
+        width: w + pad * 2,
+        height: h + pad * 2,
+        channels: 3,
+        background: rgb,
+      },
+    })
+      .joinChannel(mascara)
+      .png()
+      .toBuffer();
+
   const sombra = await sharp(escuro).blur(11).linear(0.5, 0).toBuffer();
+
   const camadas = [
     { input: await cor(sombra, "#000000"), left: 0, top: 12 },
     { input: await cor(escuro, INK), left: 0, top: 0 },
     { input: await cor(claro, "#ffffff"), left: 0, top: 0 },
     { input: pronto, left: 0, top: 0 },
   ];
-  const buf = await sharp({ create: { width: w + pad * 2, height: h + pad * 2 + 12, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(camadas).png().toBuffer();
+
+  const buf = await sharp({
+    create: {
+      width: w + pad * 2,
+      height: h + pad * 2 + 12,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite(camadas)
+    .png()
+    .toBuffer();
+
   return { buf, w, h, pad, tocaTopo, tocaBase };
 }
+
 
 // ---------- seta curva ----------
 function seta(s: { x: number; y: number }, e: { x: number; y: number }, c: { x: number; y: number }) {
@@ -219,9 +310,15 @@ export async function comporThumbnail(o: OpcoesThumb): Promise<Buffer> {
   }).join("");
 
   let setaSvg = "";
-  if (o.seta) {
-    const alvos = centro ? [0, 1, 2, 3] : [1, 3]; // no layout lateral só a coluna da direita fica ao alcance
-    const i = alvos[Math.floor(rand() * alvos.length)];
+  if (o.seta !== "off") {
+    let i: number;
+    if (typeof o.seta === "number") {
+      i = Math.max(0, Math.min(3, Math.trunc(o.seta)));
+      if (!centro && i % 2 === 0) i += 1; // lateral: o personagem fica à direita, então 1 e 3 apontam para 2 e 4 (mesma linha)
+    } else {
+      const alvos = centro ? [0, 1, 2, 3] : [1, 3];
+      i = alvos[Math.floor(rand() * alvos.length)];
+    }
     const noLadoDireito = i % 2 === 1;
     const cy = g.pos[i].y + g.h * (i < 2 ? 0.72 : 0.36); // longe da medalha do canto
     let fim = centro
@@ -272,7 +369,13 @@ export async function pngTocaTopo(arquivo: string, mtime: number): Promise<boole
   const chave = `${arquivo}|${mtime}`;
   const guardado = cacheAnalise.get(chave);
   if (guardado !== undefined) return guardado;
-  const { data, info } = await sharp(arquivo).rotate().ensureAlpha().resize({ width: 240, withoutEnlargement: true }).raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(arquivo)
+  .rotate()
+  .toColourspace("srgb")
+  .ensureAlpha()
+  .resize({ width: 240, withoutEnlargement: true })
+  .raw()
+  .toBuffer({ resolveWithObject: true });
   let n = 0;
   for (let x = 0; x < info.width; x++) if (data[x * 4 + 3] > 24) n++;
   const r = n > info.width * 0.04;

@@ -1,15 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
-import sharp from "sharp";
+import { randomInt } from "node:crypto";
+import { comporTop10, textoAutomatico } from "@/server/thumbnail/top10";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type TopItem = { rank: number; titulo: string; nota?: number; capa?: string | null };
-type TopData = { titulo?: string[]; subtitulo?: string; itens?: TopItem[] };
+type TopItem = { rank: number; capa?: string | null };
+type TopData = { titulo?: string; subtitulo?: string; itens?: TopItem[] };
 
 const raiz = process.cwd();
 const pastaPublica = path.resolve(raiz, "public");
+const LIMITE_UPLOAD = 12 * 1024 * 1024;
 
 function arquivoCapa(valor: unknown): string | null {
   if (typeof valor !== "string" || !valor.trim()) return null;
@@ -19,82 +21,72 @@ function arquivoCapa(valor: unknown): string | null {
   return absoluto;
 }
 
-function escaparSvg(texto: string) {
-  const entidades: Record<string, string> = {
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;",
-  };
-  return texto.replace(/[&<>"']/g, (caractere) => entidades[caractere] ?? caractere);
+// Reconhece JPEG, PNG e WebP pelos primeiros bytes (não confia na extensão).
+function ehImagem(b: Buffer) {
+  const png = b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const jpg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  const webp = b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP";
+  return png || jpg || webp;
 }
 
-function linhasTitulo(texto: string, max = 18) {
-  const palavras = texto.trim().split(/\s+/).filter(Boolean);
-  const linhas: string[] = [];
-  let atual = "";
-  for (const palavra of palavras) {
-    const teste = atual ? atual + " " + palavra : palavra;
-    if (teste.length > max && atual) {
-      linhas.push(atual);
-      atual = palavra;
-    } else atual = teste;
-  }
-  if (atual) linhas.push(atual);
-  return linhas.slice(0, 4);
+// Texto livre das faixas: letras, números, espaço e alguns sinais; sempre em maiúsculas.
+function limpaTexto(v: unknown, max: number): string | null | undefined {
+  if (v === undefined || v === null || (typeof v === "string" && !v.trim())) return undefined;
+  if (typeof v !== "string") return null;
+  const t = v.trim().toLocaleUpperCase("pt-BR");
+return t.length <= max && /^[A-ZÀ-Ý0-9 +·.,!?\/&-]+$/.test(t) ? t : null;
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({})) as { rank?: number; chamada?: string };
-    const rank = Number(body.rank ?? 1);
-    if (!Number.isInteger(rank) || rank < 1 || rank > 10) {
-      return Response.json({ erro: "Escolha uma capa entre 1 e 10." }, { status: 400 });
+    let rank: string | undefined, destaque: unknown, linha2: unknown, linha3: unknown, arquivo: File | null = null;
+    if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      const f = await request.formData();
+      const txt = (k: string) => { const v = f.get(k); return typeof v === "string" ? v : undefined; };
+      rank = txt("rank"); destaque = txt("destaque"); linha2 = txt("linha2"); linha3 = txt("linha3");
+      const a = f.get("imagem");
+      arquivo = a && typeof a !== "string" && a.size > 0 ? a : null;
+    } else {
+      const j = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      rank = j.rank === undefined ? undefined : String(j.rank);
+      destaque = j.destaque; linha2 = j.linha2; linha3 = j.linha3;
     }
-    const chamada = typeof body.chamada === "string" ? body.chamada.trim().slice(0, 90) : "ANIMES MAIS ASSISTIDOS NO MUNDO";
-    if (!chamada) return Response.json({ erro: "Informe o texto da thumbnail." }, { status: 400 });
+
+    const d1 = limpaTexto(destaque, 12), d2 = limpaTexto(linha2, 16), d3 = limpaTexto(linha3, 34);
+    if (d1 === null || d2 === null || d3 === null) {
+      return Response.json({ erro: "Os textos aceitam letras, números e espaços (palavra em destaque até 12, faixa amarela até 16, faixa branca até 34 caracteres)." }, { status: 400 });
+    }
 
     const dadosPath = path.join(raiz, "data", "top.json");
     if (!fs.existsSync(dadosPath)) return Response.json({ erro: "Gere um Top 10 primeiro para preparar os dados e as capas." }, { status: 422 });
     const dados = JSON.parse(fs.readFileSync(dadosPath, "utf8")) as TopData;
     const itens = Array.isArray(dados.itens) ? dados.itens : [];
-    const item = itens.find((x) => x.rank === rank) ?? itens[rank - 1];
-    if (!item) return Response.json({ erro: "A capa selecionada não existe no Top gerado." }, { status: 422 });
-    const capaPath = arquivoCapa(item.capa);
-    if (!capaPath) return Response.json({ erro: `Não encontrei a capa da posição ${rank} em public/gerado-top/.` }, { status: 422 });
+    if (itens.length === 0) return Response.json({ erro: "O último Top não tem itens." }, { status: 422 });
 
-    const largura = 1080, altura = 1920;
-    const fundo = await sharp(capaPath)
-      .rotate()
-      .resize(largura, altura, { fit: "cover", position: "attention" })
-      .modulate({ brightness: 0.78, saturation: 1.08 })
-      .png()
-      .toBuffer();
+    // Imagem de fundo: a enviada pelo usuário, a capa escolhida ou uma capa sorteada.
+    let fundo: string | Buffer | null = null;
+    if (arquivo) {
+      if (arquivo.size > LIMITE_UPLOAD) return Response.json({ erro: "A imagem passa de 12 MB. Envie um arquivo menor." }, { status: 400 });
+      const buf = Buffer.from(await arquivo.arrayBuffer());
+      if (!ehImagem(buf)) return Response.json({ erro: "O arquivo enviado não é uma imagem JPG, PNG ou WebP." }, { status: 400 });
+      fundo = buf;
+    } else if (rank && rank !== "auto") {
+      const n = Number(rank);
+      if (!Number.isInteger(n) || n < 1 || n > 10) return Response.json({ erro: "Escolha uma capa entre 1 e 10." }, { status: 400 });
+      fundo = arquivoCapa((itens.find((x) => x.rank === n) ?? itens[n - 1])?.capa);
+      if (!fundo) return Response.json({ erro: `Não encontrei a capa da posição ${n} em public/gerado-top/.` }, { status: 422 });
+    } else {
+      const capas = itens.map((x) => arquivoCapa(x.capa)).filter((c): c is string => Boolean(c));
+      if (capas.length === 0) return Response.json({ erro: "Não encontrei capas em public/gerado-top/. Gere o Top com a opção de capas ou envie uma imagem." }, { status: 422 });
+      fundo = capas[randomInt(capas.length)];
+    }
 
-    const linhas = linhasTitulo(chamada.toLocaleUpperCase("pt-BR"), 17);
-    const alturaTexto = linhas.length * 132;
-    const yInicio = Math.round(920 - alturaTexto / 2 + 105);
-    const textos = linhas.map((linha, i) => {
-      const fill = i % 3 === 0 ? "#ffe52f" : i % 3 === 1 ? "#ffffff" : "#ff514f";
-      const tamanho = linha.length > 15 ? 88 : 106;
-      return `<text x="540" y="${yInicio + i * 132}" text-anchor="middle" font-family="Arial Black,DejaVu Sans,sans-serif" font-size="${tamanho}" font-weight="1000" fill="${fill}" stroke="#080808" stroke-width="25" stroke-linejoin="round" paint-order="stroke">${escaparSvg(linha)}</text>`;
-    }).join("");
-
-    const overlay = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
-          <stop stop-color="#05060b" stop-opacity=".38"/>
-          <stop offset=".25" stop-color="#05060b" stop-opacity="0"/>
-          <stop offset=".48" stop-color="#05060b" stop-opacity=".18"/>
-          <stop offset=".72" stop-color="#05060b" stop-opacity=".08"/>
-          <stop offset="1" stop-color="#05060b" stop-opacity=".48"/>
-        </linearGradient>
-        <filter id="soft"><feGaussianBlur stdDeviation="22"/></filter>
-      </defs>
-      <rect width="1080" height="1920" fill="url(#shade)"/>
-      <rect x="70" y="${yInicio - 105}" width="940" height="${alturaTexto + 145}" rx="34" fill="#080808" opacity=".34" filter="url(#soft)"/>
-      ${textos}
-    </svg>`);
-
-    const resultado = await sharp(fundo).composite([{ input: overlay }]).png().toBuffer();
-    return new Response(resultado, {
+    const auto = textoAutomatico(dados.titulo ?? "", dados.subtitulo ?? "");
+    const png = await comporTop10({
+      fundo, numero: itens.length,
+      destaque: d1 ?? auto.destaque, linha2: d2 ?? auto.linha2, linha3: d3 ?? auto.linha3,
+    });
+    return new Response(new Uint8Array(png), {
       headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "Content-Disposition": 'inline; filename="thumbnail-top10-shorts.png"' },
     });
   } catch (erro) {
