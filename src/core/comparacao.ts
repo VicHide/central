@@ -85,7 +85,7 @@ async function main() {
   fs.mkdirSync(audioDir, { recursive: true });
 
   for (const [index, scene] of payload.scenes.entries()) {
-    evento({ etapa: "Gerando narração", pct: Math.round(((index + 1) / payload.scenes.length) * 18), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
+    evento({ etapa: "Gerando narração", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
     const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(payload.voiceId) + "?output_format=mp3_44100_128", {
       method: "POST",
       headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
@@ -131,7 +131,7 @@ async function main() {
   const nome = "comparacao-" + payload.title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) + "-" + id.slice(0, 8);
   const saida = path.join(RAIZ, "out", nome + ".mp4");
   evento({ etapa: "Narração concluída", pct: 19, detalhe: "Preparando composição e render" });
-  await renderVideo("ComparisonVideo", saida, (o) => evento(o), props);
+  await renderVideo("ComparisonVideo", saida, (o) => evento(o), props as unknown as Record<string, unknown>);
   evento({ etapa: "Concluído", pct: 100, detalhe: "out/" + nome + ".mp4" });
   console.log("Vídeo salvo em out/" + nome + ".mp4");
 }
