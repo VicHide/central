@@ -58,8 +58,21 @@ export async function POST(req: Request) {
       return Response.json({ erro: message }, { status: upstream.status >= 400 && upstream.status < 600 ? upstream.status : 502 });
     }
 
-    // Speko may return application/octet-stream; X-Speko-Audio-Format contains the actual audio MIME type.
-    const contentType = upstream.headers.get("x-speko-audio-format") || upstream.headers.get("content-type") || "application/octet-stream";
+    // Speko may return application/octet-stream; X-Speko-Audio-Format contains the actual format.
+    const audioFormat = upstream.headers.get("x-speko-audio-format")?.trim().toLowerCase();
+    const formatMimeTypes: Record<string, string> = {
+      mp3: "audio/mpeg",
+      wav: "audio/wav",
+      ogg: "audio/ogg",
+      m4a: "audio/mp4",
+      aac: "audio/aac",
+      flac: "audio/flac",
+      pcm: "audio/pcm",
+    };
+    const normalizedFormat = audioFormat
+      ? audioFormat.includes("/") ? audioFormat : formatMimeTypes[audioFormat]
+      : undefined;
+    const contentType = normalizedFormat || upstream.headers.get("content-type") || "application/octet-stream";
     if (!contentType.startsWith("audio/") && contentType !== "application/octet-stream") {
       return Response.json({ erro: "O Speko retornou um formato de resposta inesperado." }, { status: 502 });
     }
