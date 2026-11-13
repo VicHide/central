@@ -188,6 +188,7 @@ export default function Page() {
           <a className="nav-link active" href="#novo">Novo vídeo</a>
           <a className="nav-link" href="#top">Top 10 (Short)</a>
           <a className="nav-link" href="#projetos">Produção</a>\n          <a className="nav-link" href="#musicas">Músicas</a>
+          <a className="nav-link" href="/voz">Teste de voz</a>
           <a className="nav-link" href="#acervo">Acervo</a>
           <a className="nav-link" href="#thumbnail">Thumbnails</a>
           <a className="nav-link" href="#saidas">Saídas</a>
