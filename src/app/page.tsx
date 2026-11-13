@@ -12,6 +12,7 @@ type Estado = { animes: number; promos: number; navegador: boolean; musicas: num
 type Faixa = { arquivo: string; titulo: string; artista?: string; credito?: string; volume?: number; ativa?: boolean };
 type ComparacaoMedia = { arquivo: string; nome: string; tipo: "imagem" | "video"; bytes: number };
 type ComparacaoCena = { label: string; active: "left" | "right" | "none"; speech: string; expression: "neutral" | "doubt" | "surprise" };
+type ComparacaoVoz = { voice_id: string; name: string; category?: string; labels?: Record<string, string> };
 
 
 const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
@@ -96,6 +97,10 @@ export default function Page() {
   const [compCenas, setCompCenas] = useState<ComparacaoCena[]>([]);
   const [compMsg, setCompMsg] = useState("");
   const [compLoading, setCompLoading] = useState(false);
+  const [compVozes, setCompVozes] = useState<ComparacaoVoz[]>([]);
+  const [compVoz, setCompVoz] = useState("");
+  const [compVozLoading, setCompVozLoading] = useState(false);
+  const [compRenderLoading, setCompRenderLoading] = useState(false);
 
   const carregaMusicas = async () => {
     try { const d = await buscar<{ faixas: Faixa[] }>("/api/musicas"); setFaixas(d.faixas ?? []); }
@@ -138,6 +143,10 @@ export default function Page() {
     } catch { /* servidor reiniciando */ }
   };
   useEffect(() => { carrega(); carregaMusicas(); const t = setInterval(() => { carrega(); carregaMusicas(); }, 3000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (modo === "comparacao" && compVozes.length === 0 && !compVozLoading) carregaVozesComparacao();
+  }, [modo]);
+
   useEffect(() => {
     const j = jobs.find((x) => x.status === "rodando");
     document.title = j ? `${j.pct ?? 0}% · Central do Canal` : "Central do Canal";
@@ -256,6 +265,52 @@ export default function Page() {
       setCompMsg(e instanceof Error ? e.message : "Erro ao gerar o roteiro.");
     } finally {
       setCompLoading(false);
+    }
+  };
+
+  const carregaVozesComparacao = async () => {
+    setCompVozLoading(true);
+    try {
+      const r = await fetch("/api/comparacao/vozes", { cache: "no-store" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível carregar as vozes.");
+      const voices: ComparacaoVoz[] = d.voices ?? [];
+      setCompVozes(voices);
+      setCompVoz((atual) => atual && voices.some((v) => v.voice_id === atual) ? atual : voices[0]?.voice_id ?? "");
+      if (voices.length === 0) setCompMsg("Nenhuma voz disponível na conta ElevenLabs.");
+    } catch (e) {
+      setCompMsg(e instanceof Error ? e.message : "Erro ao carregar vozes.");
+    } finally {
+      setCompVozLoading(false);
+    }
+  };
+
+  const renderizarComparacao = async () => {
+    if (compCenas.length === 0 || !compVoz) {
+      setCompMsg("Gere o roteiro e selecione uma voz antes de renderizar.");
+      return;
+    }
+    if (!window.confirm("Gerar a narração de todas as cenas pela ElevenLabs e renderizar o vídeo? Isso consumirá créditos da sua conta.")) return;
+    setCompRenderLoading(true);
+    setCompMsg("");
+    try {
+      const r = await fetch("/api/comparacao/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: compTitulo, leftLabel: compLabelEsq, rightLabel: compLabelDir,
+          leftMedia: compMediaEsq?.arquivo, rightMedia: compMediaDir?.arquivo,
+          voiceId: compVoz, scenes: compCenas,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível iniciar a renderização.");
+      setCompMsg("Narração e render iniciados. Acompanhe o progresso em Produção; o MP4 aparecerá em Saídas.");
+      await carrega();
+    } catch (e) {
+      setCompMsg(e instanceof Error ? e.message : "Erro ao iniciar a renderização.");
+    } finally {
+      setCompRenderLoading(false);
     }
   };
 
@@ -419,7 +474,25 @@ export default function Page() {
                       <textarea value={cena.speech} onChange={(e) => atualizaCenaComparacao(index, "speech", e.target.value)} rows={3} />
                     </label>
                   </div>)}
-                  <p className="helper">Revise as informações e ajuste as falas. O roteiro agora tem cenas variáveis para desenvolver melhor cada conceito; a próxima etapa é integrar voz e render à fila de produção.</p>
+                  <div className="comparison-render">
+                    <div className="fields">
+                      <label>Voz da narração
+                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value)} disabled={compVozLoading || compRenderLoading}>
+                          <option value="">{compVozLoading ? "Carregando vozes…" : "Selecione uma voz"}</option>
+                          {compVozes.map((voz) => <option key={voz.voice_id} value={voz.voice_id}>{voz.name}{voz.category ? " · " + voz.category : ""}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="actions">
+                      <button type="button" className="secondary" onClick={carregaVozesComparacao} disabled={compVozLoading || compRenderLoading}>
+                        {compVozLoading ? "Carregando…" : "Atualizar vozes"}
+                      </button>
+                      <button type="button" className="primary" onClick={renderizarComparacao} disabled={compRenderLoading || compVozLoading || !compVoz || rodando}>
+                        {compRenderLoading ? "Iniciando…" : rodando ? "Outra tarefa está em andamento" : "Gerar voz e renderizar vídeo"}
+                      </button>
+                    </div>
+                    <p className="helper">A narração é gerada cena por cena. Isso consome créditos da ElevenLabs. O MP4 final será salvo em Saídas e o andamento aparece em Produção.</p>
+                  </div>
                 </div>}
               </div>
             </section>
