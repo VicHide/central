@@ -393,7 +393,7 @@ export default function Page() {
                   </div>
                 </div>
                 <div className="comparison-actions">
-                  <p className="helper">A IA cria cinco cenas: abertura, apresentação de cada quadro, comparação e pergunta final. Você poderá editar todas as falas.</p>
+                  <p className="helper">A IA cria de 8 a 10 cenas com explicações mais completas, comparação direta e conclusão. Você poderá editar todas as falas.</p>
                   <button className="primary" onClick={gerarRoteiroComparacao} disabled={compLoading || compUpload !== null}>
                     {compLoading ? "Gerando roteiro…" : "Gerar roteiro com IA"}
                   </button>
@@ -419,7 +419,7 @@ export default function Page() {
                       <textarea value={cena.speech} onChange={(e) => atualizaCenaComparacao(index, "speech", e.target.value)} rows={3} />
                     </label>
                   </div>)}
-                  <p className="helper">A revisão do roteiro está pronta. A próxima etapa é conectar a voz e o render à fila de produção.</p>
+                  <p className="helper">Revise as informações e ajuste as falas. O roteiro agora tem cenas variáveis para desenvolver melhor cada conceito; a próxima etapa é integrar voz e render à fila de produção.</p>
                 </div>}
               </div>
             </section>
