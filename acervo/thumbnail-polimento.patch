@@ -1,0 +1,1131 @@
+From b8b0ea8842d62aad11be85c8986639e7980f151c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 13 Nov 2026 03:19:48 +0000
+Subject: [PATCH] Thumbnails: PNG enviado, escolha da seta e Top 10 vertical no
+ estilo faixas
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Rota /api/thumbnail aceita multipart (PNG do personagem enviado, validado por assinatura e transparência) e seta automática, desligada ou apontando para um quadro. Top 10: nova arte vertical 1080x1920 com imagem de fundo (sorteada, escolhida ou enviada) e três faixas de texto derivadas de data/top.json (critério, gênero e período), com fonte Montserrat Black Italic embutida e quebra automática em duas linhas. Painel atualizado.
+---
+ README.md                                     |  10 ++
+ src/app/api/thumbnail/route.ts                |  49 ++++++-
+ src/app/api/thumbnail/top10/route.ts          | 122 ++++++++----------
+ src/app/page.tsx                              |  64 ++++++---
+ .../fonts/Montserrat-Black-Italic-latin.woff  | Bin 0 -> 20252 bytes
+ src/assets/fonts/Montserrat-LICENSE.txt       |  93 +++++++++++++
+ src/server/thumbnail/compor.ts                |  24 ++--
+ src/server/thumbnail/texto.ts                 |  26 ++--
+ src/server/thumbnail/top10.ts                 | 119 +++++++++++++++++
+ 9 files changed, 402 insertions(+), 105 deletions(-)
+ create mode 100644 src/assets/fonts/Montserrat-Black-Italic-latin.woff
+ create mode 100644 src/assets/fonts/Montserrat-LICENSE.txt
+ create mode 100644 src/server/thumbnail/top10.ts
+
+diff --git a/README.md b/README.md
+index 556262a..a0ba4f8 100644
+--- a/README.md
++++ b/README.md
+@@ -84,3 +84,13 @@ Painel > Gerador de thumbnails gera duas opções por clique:
+ O título é desenhado como vetor com a fonte Luckiest Guy (em `src/assets/fonts`, licença Apache 2.0), então sai igual em qualquer
+ computador. O campo "Tema" cria uma segunda linha em roxo (ex.: `200 ANIMES` + `OLHOS`). O contorno branco e escuro do personagem,
+ a sombra, as medalhas numeradas e a seta são gerados automaticamente. Coloque os recortes em `acervo/pngs/`.
++
++### Modo dinâmico das thumbnails (tudo continua automático por padrão)
++- **PNG do personagem**: no painel dá para enviar um PNG com fundo transparente. Sem envio, o sistema sorteia de `acervo/pngs`
++  (e usa PNGs com o topo cortado de preferência no formato lateral). PNG sem transparência é recusado com uma mensagem clara.
++- **Seta**: automática (sorteia o quadro), sem seta, ou apontando para o quadro 1, 2, 3 ou 4. No formato lateral o personagem fica
++  à direita, então os quadros 1 e 3 apontam para 2 e 4 (mesma linha).
++- **Top 10 vertical (1080×1920)**: imagem de fundo (capa sorteada, capa escolhida ou imagem enviada) e três faixas de texto montadas
++  sozinhas a partir do ranking: `[10] ANIMES [MELHOR]` / `AVALIADOS` / `DE ISEKAI EM 2026`. O critério (melhor avaliados, mais populares,
++  em alta), o gênero e o período vêm de `data/top.json`; sem filtros, a última faixa vira `NO MUNDO`. Os três textos podem ser trocados na mão.
++- Fontes embutidas em `src/assets/fonts`: Luckiest Guy (Apache 2.0) e Montserrat Black Italic (SIL OFL).
+diff --git a/src/app/api/thumbnail/route.ts b/src/app/api/thumbnail/route.ts
+index 6fe063a..cbf1b35 100644
+--- a/src/app/api/thumbnail/route.ts
++++ b/src/app/api/thumbnail/route.ts
+@@ -54,20 +54,54 @@ async function escolhePng(layout: Layout): Promise<string | null> {
+   return preferidos[randomInt(preferidos.length)];
+ }
+ 
++const PNG_ASSINATURA = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
++const LIMITE_UPLOAD = 10 * 1024 * 1024;
++
++// Aceita JSON (como antes) ou multipart/form-data (quando há PNG enviado).
++async function lerPedido(req: Request) {
++  const tipo = req.headers.get("content-type") ?? "";
++  if (tipo.includes("multipart/form-data")) {
++    const f = await req.formData();
++    const arq = f.get("personagem");
++    const texto = (k: string) => { const v = f.get(k); return typeof v === "string" ? v : undefined; };
++    return { layout: texto("layout"), seta: texto("seta"), tema: texto("tema"), arquivo: arq && typeof arq !== "string" && arq.size > 0 ? arq : null };
++  }
++  const j = (await req.json().catch(() => ({}))) as { layout?: unknown; seta?: unknown; tema?: unknown };
++  return { layout: j.layout, seta: j.seta, tema: j.tema, arquivo: null as File | null };
++}
++
++// "auto" | "off" | 1..4 (ou o booleano antigo). Devolve null se for inválido.
++function lerSeta(v: unknown): "auto" | "off" | number | null {
++  if (v === undefined || v === "" || v === "auto" || v === true) return "auto";
++  if (v === "off" || v === false) return "off";
++  const n = Number(v);
++  return Number.isInteger(n) && n >= 1 && n <= 4 ? n - 1 : null;
++}
++
+ export async function POST(req: Request) {
+   try {
+-    const corpo = (await req.json().catch(() => ({}))) as { layout?: unknown; seta?: unknown; tema?: unknown };
++    const corpo = await lerPedido(req);
+     const layout: Layout | null = corpo.layout === undefined || corpo.layout === "centro" ? "centro" : corpo.layout === "lateral" ? "lateral" : null;
+     if (!layout) return Response.json({ erro: "Layout inválido. Use centro ou lateral." }, { status: 400 });
+-    const seta = corpo.seta !== false;
++    const seta = lerSeta(corpo.seta);
++    if (seta === null) return Response.json({ erro: "Seta inválida. Use automática, sem seta ou um quadro de 1 a 4." }, { status: 400 });
+     const tema = typeof corpo.tema === "string" ? corpo.tema.trim().toUpperCase() : "";
+     if (tema && !/^[A-ZÀ-Ý0-9 ]{1,18}$/.test(tema)) {
+       return Response.json({ erro: "O tema aceita só letras, números e espaços (até 18 caracteres)." }, { status: 400 });
+     }
+ 
+-    const arquivoPng = await escolhePng(layout);
+-    if (!arquivoPng) {
+-      return Response.json({ erro: "Não encontrei arquivos PNG em acervo/pngs. Adicione pelo menos um PNG nessa pasta." }, { status: 422 });
++    // Personagem: o PNG enviado tem prioridade; sem ele, sorteia de acervo/pngs.
++    let personagem: string | Buffer | null = null;
++    if (corpo.arquivo) {
++      if (corpo.arquivo.size > LIMITE_UPLOAD) return Response.json({ erro: "O PNG passa de 10 MB. Envie um arquivo menor." }, { status: 400 });
++      const buf = Buffer.from(await corpo.arquivo.arrayBuffer());
++      if (!buf.subarray(0, 8).equals(PNG_ASSINATURA)) return Response.json({ erro: "O arquivo enviado não é um PNG. Envie um PNG com fundo transparente." }, { status: 400 });
++      personagem = buf;
++    } else {
++      personagem = await escolhePng(layout);
++    }
++    if (!personagem) {
++      return Response.json({ erro: "Não encontrei PNGs em acervo/pngs. Adicione um PNG nessa pasta ou envie um pelo painel." }, { status: 422 });
+     }
+ 
+     const intro = JSON.parse(fs.readFileSync(path.join(raiz, "data", "intro.json"), "utf8")) as { modo?: string };
+@@ -94,7 +128,7 @@ export async function POST(req: Request) {
+     const png = await comporThumbnail({
+       layout,
+       cartoes: embaralha(candidatos).slice(0, 4),
+-      personagem: arquivoPng,
++      personagem,
+       titulo,
+       seta,
+       seed: randomInt(1_000_000_000),
+@@ -108,6 +142,9 @@ export async function POST(req: Request) {
+       },
+     });
+   } catch (erro) {
++    const msg = erro instanceof Error ? erro.message : "";
++    if (msg === "PNG_SEM_TRANSPARENCIA") return Response.json({ erro: "Esse PNG não tem fundo transparente (o personagem precisa estar recortado). Remova o fundo e envie de novo." }, { status: 422 });
++    if (msg === "PNG_VAZIO") return Response.json({ erro: "Esse PNG está totalmente transparente." }, { status: 422 });
+     console.error("Erro ao gerar thumbnail:", erro);
+     return Response.json({ erro: "Não foi possível gerar a thumbnail. Confira se existe um quiz preparado." }, { status: 500 });
+   }
+diff --git a/src/app/api/thumbnail/top10/route.ts b/src/app/api/thumbnail/top10/route.ts
+index caec0d8..0ef7a34 100644
+--- a/src/app/api/thumbnail/top10/route.ts
++++ b/src/app/api/thumbnail/top10/route.ts
+@@ -1,15 +1,17 @@
+ import fs from "node:fs";
+ import path from "node:path";
+-import sharp from "sharp";
++import { randomInt } from "node:crypto";
++import { comporTop10, textoAutomatico } from "@/server/thumbnail/top10";
+ 
+ export const dynamic = "force-dynamic";
+ export const runtime = "nodejs";
+ 
+-type TopItem = { rank: number; titulo: string; nota?: number; capa?: string | null };
+-type TopData = { titulo?: string[]; subtitulo?: string; itens?: TopItem[] };
++type TopItem = { rank: number; capa?: string | null };
++type TopData = { titulo?: string; subtitulo?: string; itens?: TopItem[] };
+ 
+ const raiz = process.cwd();
+ const pastaPublica = path.resolve(raiz, "public");
++const LIMITE_UPLOAD = 12 * 1024 * 1024;
+ 
+ function arquivoCapa(valor: unknown): string | null {
+   if (typeof valor !== "string" || !valor.trim()) return null;
+@@ -19,82 +21,72 @@ function arquivoCapa(valor: unknown): string | null {
+   return absoluto;
+ }
+ 
+-function escaparSvg(texto: string) {
+-  const entidades: Record<string, string> = {
+-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;",
+-  };
+-  return texto.replace(/[&<>"']/g, (caractere) => entidades[caractere] ?? caractere);
++// Reconhece JPEG, PNG e WebP pelos primeiros bytes (não confia na extensão).
++function ehImagem(b: Buffer) {
++  const png = b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
++  const jpg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
++  const webp = b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP";
++  return png || jpg || webp;
+ }
+ 
+-function linhasTitulo(texto: string, max = 18) {
+-  const palavras = texto.trim().split(/\s+/).filter(Boolean);
+-  const linhas: string[] = [];
+-  let atual = "";
+-  for (const palavra of palavras) {
+-    const teste = atual ? atual + " " + palavra : palavra;
+-    if (teste.length > max && atual) {
+-      linhas.push(atual);
+-      atual = palavra;
+-    } else atual = teste;
+-  }
+-  if (atual) linhas.push(atual);
+-  return linhas.slice(0, 4);
++// Texto livre das faixas: letras, números, espaço e alguns sinais; sempre em maiúsculas.
++function limpaTexto(v: unknown, max: number): string | null | undefined {
++  if (v === undefined || v === null || (typeof v === "string" && !v.trim())) return undefined;
++  if (typeof v !== "string") return null;
++  const t = v.trim().toLocaleUpperCase("pt-BR");
++  return t.length <= max && /^[A-ZÀ-Ý0-9 +·.,!?'/&-]+$/.test(t) ? t : null;
+ }
+ 
+ export async function POST(request: Request) {
+   try {
+-    const body = await request.json().catch(() => ({})) as { rank?: number; chamada?: string };
+-    const rank = Number(body.rank ?? 1);
+-    if (!Number.isInteger(rank) || rank < 1 || rank > 10) {
+-      return Response.json({ erro: "Escolha uma capa entre 1 e 10." }, { status: 400 });
++    let rank: string | undefined, destaque: unknown, linha2: unknown, linha3: unknown, arquivo: File | null = null;
++    if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
++      const f = await request.formData();
++      const txt = (k: string) => { const v = f.get(k); return typeof v === "string" ? v : undefined; };
++      rank = txt("rank"); destaque = txt("destaque"); linha2 = txt("linha2"); linha3 = txt("linha3");
++      const a = f.get("imagem");
++      arquivo = a && typeof a !== "string" && a.size > 0 ? a : null;
++    } else {
++      const j = (await request.json().catch(() => ({}))) as Record<string, unknown>;
++      rank = j.rank === undefined ? undefined : String(j.rank);
++      destaque = j.destaque; linha2 = j.linha2; linha3 = j.linha3;
++    }
++
++    const d1 = limpaTexto(destaque, 12), d2 = limpaTexto(linha2, 16), d3 = limpaTexto(linha3, 34);
++    if (d1 === null || d2 === null || d3 === null) {
++      return Response.json({ erro: "Os textos aceitam letras, números e espaços (palavra em destaque até 12, faixa amarela até 16, faixa branca até 34 caracteres)." }, { status: 400 });
+     }
+-    const chamada = typeof body.chamada === "string" ? body.chamada.trim().slice(0, 90) : "ANIMES MAIS ASSISTIDOS NO MUNDO";
+-    if (!chamada) return Response.json({ erro: "Informe o texto da thumbnail." }, { status: 400 });
+ 
+     const dadosPath = path.join(raiz, "data", "top.json");
+     if (!fs.existsSync(dadosPath)) return Response.json({ erro: "Gere um Top 10 primeiro para preparar os dados e as capas." }, { status: 422 });
+     const dados = JSON.parse(fs.readFileSync(dadosPath, "utf8")) as TopData;
+     const itens = Array.isArray(dados.itens) ? dados.itens : [];
+-    const item = itens.find((x) => x.rank === rank) ?? itens[rank - 1];
+-    if (!item) return Response.json({ erro: "A capa selecionada não existe no Top gerado." }, { status: 422 });
+-    const capaPath = arquivoCapa(item.capa);
+-    if (!capaPath) return Response.json({ erro: `Não encontrei a capa da posição ${rank} em public/gerado-top/.` }, { status: 422 });
+-
+-    const largura = 1080, altura = 1920;
+-    const fundo = await sharp(capaPath)
+-      .rotate()
+-      .resize(largura, altura, { fit: "cover", position: "attention" })
+-      .modulate({ brightness: 0.78, saturation: 1.08 })
+-      .png()
+-      .toBuffer();
++    if (itens.length === 0) return Response.json({ erro: "O último Top não tem itens." }, { status: 422 });
+ 
+-    const linhas = linhasTitulo(chamada.toLocaleUpperCase("pt-BR"), 17);
+-    const alturaTexto = linhas.length * 132;
+-    const yInicio = Math.round(920 - alturaTexto / 2 + 105);
+-    const textos = linhas.map((linha, i) => {
+-      const fill = i % 3 === 0 ? "#ffe52f" : i % 3 === 1 ? "#ffffff" : "#ff514f";
+-      const tamanho = linha.length > 15 ? 88 : 106;
+-      return `<text x="540" y="${yInicio + i * 132}" text-anchor="middle" font-family="Arial Black,DejaVu Sans,sans-serif" font-size="${tamanho}" font-weight="1000" fill="${fill}" stroke="#080808" stroke-width="25" stroke-linejoin="round" paint-order="stroke">${escaparSvg(linha)}</text>`;
+-    }).join("");
+-
+-    const overlay = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
+-      <defs>
+-        <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+-          <stop stop-color="#05060b" stop-opacity=".38"/>
+-          <stop offset=".25" stop-color="#05060b" stop-opacity="0"/>
+-          <stop offset=".48" stop-color="#05060b" stop-opacity=".18"/>
+-          <stop offset=".72" stop-color="#05060b" stop-opacity=".08"/>
+-          <stop offset="1" stop-color="#05060b" stop-opacity=".48"/>
+-        </linearGradient>
+-        <filter id="soft"><feGaussianBlur stdDeviation="22"/></filter>
+-      </defs>
+-      <rect width="1080" height="1920" fill="url(#shade)"/>
+-      <rect x="70" y="${yInicio - 105}" width="940" height="${alturaTexto + 145}" rx="34" fill="#080808" opacity=".34" filter="url(#soft)"/>
+-      ${textos}
+-    </svg>`);
++    // Imagem de fundo: a enviada pelo usuário, a capa escolhida ou uma capa sorteada.
++    let fundo: string | Buffer | null = null;
++    if (arquivo) {
++      if (arquivo.size > LIMITE_UPLOAD) return Response.json({ erro: "A imagem passa de 12 MB. Envie um arquivo menor." }, { status: 400 });
++      const buf = Buffer.from(await arquivo.arrayBuffer());
++      if (!ehImagem(buf)) return Response.json({ erro: "O arquivo enviado não é uma imagem JPG, PNG ou WebP." }, { status: 400 });
++      fundo = buf;
++    } else if (rank && rank !== "auto") {
++      const n = Number(rank);
++      if (!Number.isInteger(n) || n < 1 || n > 10) return Response.json({ erro: "Escolha uma capa entre 1 e 10." }, { status: 400 });
++      fundo = arquivoCapa((itens.find((x) => x.rank === n) ?? itens[n - 1])?.capa);
++      if (!fundo) return Response.json({ erro: `Não encontrei a capa da posição ${n} em public/gerado-top/.` }, { status: 422 });
++    } else {
++      const capas = itens.map((x) => arquivoCapa(x.capa)).filter((c): c is string => Boolean(c));
++      if (capas.length === 0) return Response.json({ erro: "Não encontrei capas em public/gerado-top/. Gere o Top com a opção de capas ou envie uma imagem." }, { status: 422 });
++      fundo = capas[randomInt(capas.length)];
++    }
+ 
+-    const resultado = await sharp(fundo).composite([{ input: overlay }]).png().toBuffer();
+-    return new Response(resultado, {
++    const auto = textoAutomatico(dados.titulo ?? "", dados.subtitulo ?? "");
++    const png = await comporTop10({
++      fundo, numero: itens.length,
++      destaque: d1 ?? auto.destaque, linha2: d2 ?? auto.linha2, linha3: d3 ?? auto.linha3,
++    });
++    return new Response(new Uint8Array(png), {
+       headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "Content-Disposition": 'inline; filename="thumbnail-top10-shorts.png"' },
+     });
+   } catch (erro) {
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index 80eee86..94df451 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -66,15 +66,19 @@ export default function Page() {
+   const [tagsMsg, setTagsMsg] = useState("");
+   const [tagsLoading, setTagsLoading] = useState(false);
+   const [thumbs, setThumbs] = useState<{ centro: string; lateral: string }>({ centro: "", lateral: "" });
+-  const [thumbSeta, setThumbSeta] = useState(true);
++  const [thumbSeta, setThumbSeta] = useState("auto"); // auto | off | 1..4
++  const [thumbPng, setThumbPng] = useState<File | null>(null);
+   const [thumbTema, setThumbTema] = useState("");
+   const [thumbMsg, setThumbMsg] = useState("");
+   const [thumbLoading, setThumbLoading] = useState(false);
+   const [topThumbUrl, setTopThumbUrl] = useState("");
+   const [topThumbMsg, setTopThumbMsg] = useState("");
+   const [topThumbLoading, setTopThumbLoading] = useState(false);
+-  const [topThumbRank, setTopThumbRank] = useState("1");
+-  const [topThumbChamada, setTopThumbChamada] = useState("ANIMES MAIS ASSISTIDOS NO MUNDO");
++  const [topThumbRank, setTopThumbRank] = useState("auto");
++  const [topThumbImg, setTopThumbImg] = useState<File | null>(null);
++  const [topDestaque, setTopDestaque] = useState("");
++  const [topLinha2, setTopLinha2] = useState("");
++  const [topLinha3, setTopLinha3] = useState("");
+   const [faixas, setFaixas] = useState<Faixa[]>([]);
+   const [musicaArquivo, setMusicaArquivo] = useState<File | null>(null);
+   const [musicaTitulo, setMusicaTitulo] = useState("");
+@@ -165,8 +169,14 @@ export default function Page() {
+   const gerarThumbnail = async () => {
+     setThumbLoading(true); setThumbMsg("");
+     try {
+-      const corpo = JSON.stringify({ seta: thumbSeta, tema: thumbTema.trim() || undefined });
+-      const pedir = (layout: "centro" | "lateral") => fetch("/api/thumbnail", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...JSON.parse(corpo), layout }) });
++      const pedir = (layout: "centro" | "lateral") => {
++        const f = new FormData();
++        f.append("layout", layout);
++        f.append("seta", thumbSeta);
++        if (thumbTema.trim()) f.append("tema", thumbTema.trim());
++        if (thumbPng) f.append("personagem", thumbPng);
++        return fetch("/api/thumbnail", { method: "POST", body: f });
++      };
+       const [rc, rl] = await Promise.all([pedir("centro"), pedir("lateral")]);
+       for (const r of [rc, rl]) {
+         if (!r.ok) { const d = await r.json(); throw new Error(d.erro ?? "Não foi possível gerar a thumbnail."); }
+@@ -186,11 +196,13 @@ export default function Page() {
+   const gerarThumbnailTop = async () => {
+     setTopThumbLoading(true); setTopThumbMsg("");
+     try {
+-      const r = await fetch("/api/thumbnail/top10", {
+-        method: "POST",
+-        headers: { "Content-Type": "application/json" },
+-        body: JSON.stringify({ rank: Number(topThumbRank), chamada: topThumbChamada }),
+-      });
++      const f = new FormData();
++      f.append("rank", topThumbRank);
++      if (topThumbImg) f.append("imagem", topThumbImg);
++      if (topDestaque.trim()) f.append("destaque", topDestaque.trim());
++      if (topLinha2.trim()) f.append("linha2", topLinha2.trim());
++      if (topLinha3.trim()) f.append("linha3", topLinha3.trim());
++      const r = await fetch("/api/thumbnail/top10", { method: "POST", body: f });
+       if (!r.ok) {
+         const d = await r.json();
+         throw new Error(d.erro ?? "Não foi possível gerar a thumbnail do Top 10.");
+@@ -382,10 +394,19 @@ export default function Page() {
+             <div className="form-body" style={{ marginTop: 20 }}>
+               <div className="fields">
+                 <label>Tema no título (opcional)<input value={thumbTema} maxLength={18} onChange={(e) => setThumbTema(e.target.value)} placeholder="ex.: OLHOS" /></label>
++                <label>Seta
++                  <select value={thumbSeta} onChange={(e) => setThumbSeta(e.target.value)}>
++                    <option value="auto">Automática (sorteia o quadro)</option>
++                    <option value="off">Sem seta</option>
++                    {[1, 2, 3, 4].map((n) => <option key={n} value={String(n)}>Apontar para o quadro {n}</option>)}
++                  </select>
++                </label>
++                <label>PNG do personagem (opcional)
++                  <input type="file" accept="image/png" onChange={(e) => setThumbPng(e.target.files?.[0] ?? null)} />
++                </label>
+               </div>
+-              <label className="check"><input type="checkbox" checked={thumbSeta} onChange={(e) => setThumbSeta(e.target.checked)} /> Seta apontando para um quadro</label>
+               <div className="form-footer">
+-                <p className="helper">Usa as imagens de public/gerado/ e os PNGs de acervo/pngs. PNG com o cabelo cortado no topo combina com a opção lateral.</p>
++                <p className="helper">Automático por padrão: sorteia os quadros do último quiz e um PNG de acervo/pngs. Envie um PNG para escolher o personagem. No formato lateral, os quadros 1 e 3 apontam para 2 e 4.</p>
+                 <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : thumbs.centro ? "Sortear outras" : "Gerar thumbnails"}</button></div>
+               </div>
+               {(thumbs.centro || thumbs.lateral) && <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
+@@ -405,22 +426,31 @@ export default function Page() {
+ 
+           <section className="composer" id="thumbnail-top10" style={{ marginTop: 14 }}>
+             <div className="section-head">
+-              <div><h2>Thumbnail · Top 10 Shorts</h2><p>Cria uma arte vertical a partir das capas do último ranking gerado.</p></div>
++              <div><h2>Thumbnail · Top 10 Shorts</h2><p>Arte vertical com imagem de fundo e as faixas de texto, montada automaticamente a partir do último ranking.</p></div>
+               <span className="step-label">1080 × 1920 · 9:16</span>
+             </div>
+             <div className="form-body" style={{ marginTop: 20 }}>
+               <div className="fields">
+-                <label>Capa de fundo
++                <label>Imagem de fundo
+                   <select value={topThumbRank} onChange={(e) => setTopThumbRank(e.target.value)}>
++                    <option value="auto">Automática (sorteia uma capa)</option>
+                     {Array.from({ length: 10 }, (_, i) => <option key={i + 1} value={String(i + 1)}>Capa {i + 1}</option>)}
+                   </select>
+                 </label>
+-                <label>Chamada principal
+-                  <input value={topThumbChamada} maxLength={90} onChange={(e) => setTopThumbChamada(e.target.value)} placeholder="ANIMES MAIS ASSISTIDOS NO MUNDO" />
++                <label>Ou envie a sua imagem (opcional)
++                  <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setTopThumbImg(e.target.files?.[0] ?? null)} />
+                 </label>
+               </div>
++              <details style={{ marginTop: 14 }}>
++                <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>Ajustar os textos (opcional)</summary>
++                <div className="fields" style={{ marginTop: 12 }}>
++                  <label>Palavra em destaque<input value={topDestaque} maxLength={12} onChange={(e) => setTopDestaque(e.target.value)} placeholder="automático (ex.: MELHOR)" /></label>
++                  <label>Faixa amarela<input value={topLinha2} maxLength={16} onChange={(e) => setTopLinha2(e.target.value)} placeholder="automático (ex.: AVALIADOS)" /></label>
++                  <label>Faixa branca<input value={topLinha3} maxLength={34} onChange={(e) => setTopLinha3(e.target.value)} placeholder="automático (ex.: NO MUNDO)" /></label>
++                </div>
++              </details>
+               <div className="form-footer">
+-                <p className="helper">Escolha qual capa será usada como imagem de fundo. O número serve apenas para selecionar a capa e não aparece na arte.</p>
++                <p className="helper">Tudo sai automático a partir do ranking (quantidade, critério e filtros). Os campos acima só servem para trocar algo na mão.</p>
+                 <div className="actions">
+                   <button className="primary" onClick={gerarThumbnailTop} disabled={topThumbLoading}>{topThumbLoading ? "Montando thumbnail…" : topThumbUrl ? "Gerar novamente" : "Gerar thumbnail vertical"}</button>
+                 </div>
+diff --git a/src/assets/fonts/Montserrat-Black-Italic-latin.woff b/src/assets/fonts/Montserrat-Black-Italic-latin.woff
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d400c648bf7318341d458036dca7910057f2371
+GIT binary patch
+literal 20252
+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
+N`cMB0zH1@6001n#YT^I@
+
+literal 0
+HcmV?d00001
+
+diff --git a/src/assets/fonts/Montserrat-LICENSE.txt b/src/assets/fonts/Montserrat-LICENSE.txt
+new file mode 100644
+index 0000000..35ae34c
+--- /dev/null
++++ b/src/assets/fonts/Montserrat-LICENSE.txt
+@@ -0,0 +1,93 @@
++Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat) Montserrat-Italic[wght].ttf: Copyright 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
++
++This Font Software is licensed under the SIL Open Font License, Version 1.1.
++This license is copied below, and is also available with a FAQ at:
++http://scripts.sil.org/OFL
++
++
++-----------------------------------------------------------
++SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
++-----------------------------------------------------------
++
++PREAMBLE
++The goals of the Open Font License (OFL) are to stimulate worldwide
++development of collaborative font projects, to support the font creation
++efforts of academic and linguistic communities, and to provide a free and
++open framework in which fonts may be shared and improved in partnership
++with others.
++
++The OFL allows the licensed fonts to be used, studied, modified and
++redistributed freely as long as they are not sold by themselves. The
++fonts, including any derivative works, can be bundled, embedded,
++redistributed and/or sold with any software provided that any reserved
++names are not used by derivative works. The fonts and derivatives,
++however, cannot be released under any other type of license. The
++requirement for fonts to remain under this license does not apply
++to any document created using the fonts or their derivatives.
++
++DEFINITIONS
++"Font Software" refers to the set of files released by the Copyright
++Holder(s) under this license and clearly marked as such. This may
++include source files, build scripts and documentation.
++
++"Reserved Font Name" refers to any names specified as such after the
++copyright statement(s).
++
++"Original Version" refers to the collection of Font Software components as
++distributed by the Copyright Holder(s).
++
++"Modified Version" refers to any derivative made by adding to, deleting,
++or substituting -- in part or in whole -- any of the components of the
++Original Version, by changing formats or by porting the Font Software to a
++new environment.
++
++"Author" refers to any designer, engineer, programmer, technical
++writer or other person who contributed to the Font Software.
++
++PERMISSION & CONDITIONS
++Permission is hereby granted, free of charge, to any person obtaining
++a copy of the Font Software, to use, study, copy, merge, embed, modify,
++redistribute, and sell modified and unmodified copies of the Font
++Software, subject to the following conditions:
++
++1) Neither the Font Software nor any of its individual components,
++in Original or Modified Versions, may be sold by itself.
++
++2) Original or Modified Versions of the Font Software may be bundled,
++redistributed and/or sold with any software, provided that each copy
++contains the above copyright notice and this license. These can be
++included either as stand-alone text files, human-readable headers or
++in the appropriate machine-readable metadata fields within text or
++binary files as long as those fields can be easily viewed by the user.
++
++3) No Modified Version of the Font Software may use the Reserved Font
++Name(s) unless explicit written permission is granted by the corresponding
++Copyright Holder. This restriction only applies to the primary font name as
++presented to the users.
++
++4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
++Software shall not be used to promote, endorse or advertise any
++Modified Version, except to acknowledge the contribution(s) of the
++Copyright Holder(s) and the Author(s) or with their explicit written
++permission.
++
++5) The Font Software, modified or unmodified, in part or in whole,
++must be distributed entirely under this license, and must not be
++distributed under any other license. The requirement for fonts to
++remain under this license does not apply to any document created
++using the Font Software.
++
++TERMINATION
++This license becomes null and void if any of the above conditions are
++not met.
++
++DISCLAIMER
++THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
++OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
++DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
++OTHER DEALINGS IN THE FONT SOFTWARE.
+diff --git a/src/server/thumbnail/compor.ts b/src/server/thumbnail/compor.ts
+index 8c4db5c..5ccddfd 100644
+--- a/src/server/thumbnail/compor.ts
++++ b/src/server/thumbnail/compor.ts
+@@ -7,9 +7,9 @@ export type Segmento = { texto: string; cor: CorTexto };
+ export type OpcoesThumb = {
+   layout: Layout;
+   cartoes: string[]; // 4 imagens (caminhos absolutos)
+-  personagem: string; // PNG com fundo transparente
++  personagem: string | Buffer; // PNG com fundo transparente (caminho ou conteúdo enviado)
+   titulo: Segmento[][]; // linhas; cada linha tem segmentos (ex.: número em branco + palavra em ouro)
+-  seta: boolean;
++  seta: "auto" | "off" | number; // automática, sem seta, ou o índice (0 a 3) do quadro para onde apontar
+   seed: number;
+ };
+ 
+@@ -119,18 +119,20 @@ function linhaTitulo(seg: Segmento[], cx: number, base: number, tam: number, n:
+ 
+ // ---------- personagem ----------
+ type Personagem = { buf: Buffer; w: number; h: number; pad: number; tocaTopo: boolean; tocaBase: boolean };
+-export async function personagem(arquivo: string, alvoAltura: number): Promise<Personagem> {
++export async function personagem(arquivo: string | Buffer, alvoAltura: number): Promise<Personagem> {
+   const base = sharp(arquivo).rotate().ensureAlpha();
+   const { data, info } = await base.clone().raw().toBuffer({ resolveWithObject: true });
+   const { width: iw, height: ih } = info;
+-  let minX = iw, minY = ih, maxX = -1, maxY = -1, topo = 0, baseTocada = 0;
++  let minX = iw, minY = ih, maxX = -1, maxY = -1, topo = 0, baseTocada = 0, transparentes = 0;
+   for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) {
++    if (data[(y * iw + x) * 4 + 3] < 10) transparentes++;
+     if (data[(y * iw + x) * 4 + 3] > 24) {
+       if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+       if (y === 0) topo++; if (y === ih - 1) baseTocada++;
+     }
+   }
+-  if (maxX < 0) throw new Error("O PNG do personagem está totalmente transparente.");
++  if (maxX < 0) throw new Error("PNG_VAZIO");
++  if (transparentes < iw * ih * 0.005) throw new Error("PNG_SEM_TRANSPARENCIA");
+   const tocaTopo = topo > iw * 0.04, tocaBase = baseTocada > iw * 0.04;
+   const recorte = await base.clone().extract({ left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 }).resize({ height: alvoAltura }).png().toBuffer();
+   const meta = await sharp(recorte).metadata();
+@@ -219,9 +221,15 @@ export async function comporThumbnail(o: OpcoesThumb): Promise<Buffer> {
+   }).join("");
+ 
+   let setaSvg = "";
+-  if (o.seta) {
+-    const alvos = centro ? [0, 1, 2, 3] : [1, 3]; // no layout lateral só a coluna da direita fica ao alcance
+-    const i = alvos[Math.floor(rand() * alvos.length)];
++  if (o.seta !== "off") {
++    let i: number;
++    if (typeof o.seta === "number") {
++      i = Math.max(0, Math.min(3, Math.trunc(o.seta)));
++      if (!centro && i % 2 === 0) i += 1; // lateral: o personagem fica à direita, então 1 e 3 apontam para 2 e 4 (mesma linha)
++    } else {
++      const alvos = centro ? [0, 1, 2, 3] : [1, 3];
++      i = alvos[Math.floor(rand() * alvos.length)];
++    }
+     const noLadoDireito = i % 2 === 1;
+     const cy = g.pos[i].y + g.h * (i < 2 ? 0.72 : 0.36); // longe da medalha do canto
+     let fim = centro
+diff --git a/src/server/thumbnail/texto.ts b/src/server/thumbnail/texto.ts
+index d18232e..d9a8195 100644
+--- a/src/server/thumbnail/texto.ts
++++ b/src/server/thumbnail/texto.ts
+@@ -2,16 +2,24 @@ import fs from "node:fs";
+ import path from "node:path";
+ import opentype from "opentype.js";
+ 
+-// A fonte vem junto com o projeto (src/assets/fonts), então o título sai igual em qualquer computador.
+-let fonte: opentype.Font | null = null;
+-function carrega(): opentype.Font {
+-  if (!fonte) {
+-    const b = fs.readFileSync(path.join(process.cwd(), "src", "assets", "fonts", "LuckiestGuy-latin.woff"));
+-    fonte = opentype.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
++// As fontes vêm junto com o projeto (src/assets/fonts), então o texto sai igual em qualquer computador.
++export type NomeFonte = "luckiest" | "montserrat";
++const ARQUIVOS: Record<NomeFonte, string> = {
++  luckiest: "LuckiestGuy-latin.woff", // títulos em 3D das thumbnails
++  montserrat: "Montserrat-Black-Italic-latin.woff", // faixas do Top 10 vertical
++};
++const cache = new Map<NomeFonte, opentype.Font>();
++
++function carrega(nome: NomeFonte): opentype.Font {
++  let f = cache.get(nome);
++  if (!f) {
++    const b = fs.readFileSync(path.join(process.cwd(), "src", "assets", "fonts", ARQUIVOS[nome]));
++    f = opentype.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
++    cache.set(nome, f);
+   }
+-  return fonte;
++  return f;
+ }
+ 
+-export const larguraTexto = (texto: string, tam: number) => carrega().getAdvanceWidth(texto, tam);
++export const larguraTexto = (texto: string, tam: number, fonte: NomeFonte = "luckiest") => carrega(fonte).getAdvanceWidth(texto, tam);
+ // Converte o texto em contorno vetorial (path SVG) com a base da linha em y.
+-export const textoPath = (texto: string, x: number, y: number, tam: number) => carrega().getPath(texto, x, y, tam).toPathData(2);
++export const textoPath = (texto: string, x: number, y: number, tam: number, fonte: NomeFonte = "luckiest") => carrega(fonte).getPath(texto, x, y, tam).toPathData(2);
+diff --git a/src/server/thumbnail/top10.ts b/src/server/thumbnail/top10.ts
+new file mode 100644
+index 0000000..ab56b7b
+--- /dev/null
++++ b/src/server/thumbnail/top10.ts
+@@ -0,0 +1,119 @@
++import sharp from "sharp";
++import { larguraTexto, textoPath } from "./texto";
++
++export type OpcoesTop10 = {
++  fundo: string | Buffer; // imagem de fundo (capa do ranking ou imagem enviada)
++  numero: number; // quantidade de animes do ranking
++  destaque: string; // palavra em destaque na 1ª faixa (ex.: MELHOR)
++  linha2: string; // faixa amarela grande (ex.: AVALIADOS)
++  linha3: string; // faixa branca com texto vermelho (ex.: NO MUNDO)
++};
++
++const W = 1080, H = 1920;
++const INK = "#0b0b12", AMARELO = "#ffe01a", VERMELHO = "#e8232a";
++const F = "montserrat" as const;
++const larg = (t: string, tam: number) => larguraTexto(t, tam, F);
++const caminho = (t: string, x: number, y: number, tam: number) => textoPath(t, x, y, tam, F);
++// Altura das maiúsculas (Montserrat ≈ 0.70 do tamanho): usada para centrar o texto na faixa.
++const baseline = (centroY: number, tam: number) => centroY + tam * 0.35;
++
++// Cabeçalho do ranking (O que diz a referência): "[10] ANIMES [MAIS]" / "ASSISTIDOS" / "NO MUNDO".
++export async function comporTop10(o: OpcoesTop10): Promise<Buffer> {
++  const fundo = await sharp(o.fundo).rotate().resize(W, H, { fit: "cover", position: "attention" })
++    .modulate({ brightness: 0.9, saturation: 1.12 }).sharpen({ sigma: 1.1 }).png().toBuffer();
++
++  // ---- faixa 1: círculo com o número + ANIMES + palavra destacada ----
++  const num = String(o.numero);
++  let k = 1;
++  const medidas = (s: number) => {
++    const d = 120 * s, gap = 24 * s, tam = 86 * s, pad = 26 * s;
++    const wAnimes = larg("ANIMES", tam), wDest = o.destaque ? larg(o.destaque, tam) + pad * 2 : 0;
++    return { d, gap, tam, pad, wAnimes, wDest, total: d + gap + wAnimes + (wDest ? gap + wDest : 0) };
++  };
++  let m = medidas(k);
++  if (m.total > 860) { k = 860 / m.total; m = medidas(k); }
++  const h1 = 160 * Math.max(k, 0.8), y1 = 1170;
++  const w1 = m.total + 74;
++  const x1 = (W - w1) / 2;
++  let cursor = x1 + 37;
++  const cyc = y1 + h1 / 2;
++  const tNum = m.d * 0.6;
++  const circulo = `<circle cx="${cursor + m.d / 2}" cy="${cyc}" r="${m.d / 2}" fill="${VERMELHO}" stroke="${INK}" stroke-width="5"/>
++    <path d="${caminho(num, cursor + m.d / 2 - larg(num, tNum) / 2, baseline(cyc, tNum), tNum)}" fill="#fff"/>`;
++  cursor += m.d + m.gap;
++  const animes = `<path d="${caminho("ANIMES", cursor, baseline(cyc, m.tam), m.tam)}" fill="${INK}"/>`;
++  cursor += m.wAnimes + m.gap;
++  const pill = o.destaque
++    ? `<rect x="${cursor}" y="${cyc - m.tam * 0.62}" width="${m.wDest}" height="${m.tam * 1.24}" rx="${14 * k}" fill="${AMARELO}"/>
++       <path d="${caminho(o.destaque, cursor + m.pad, baseline(cyc, m.tam), m.tam)}" fill="${INK}"/>` : "";
++
++  // ---- faixa 2: amarela, texto grande ----
++  const tam2 = Math.min(176, 800 / (larg(o.linha2, 100) / 100));
++  const w2 = Math.min(960, larg(o.linha2, tam2) + 110), h2 = 214, y2 = y1 + h1 - 16;
++  const x2 = (W - w2) / 2;
++  const t2 = `<path d="${caminho(o.linha2, W / 2 - larg(o.linha2, tam2) / 2, baseline(y2 + h2 / 2, tam2), tam2)}" fill="${INK}"/>`;
++
++  // ---- faixa 3: branca, texto vermelho (se o texto for longo, quebra em duas linhas) ----
++  const ajusta3 = (txt: string) => Math.min(122, 800 / (larg(txt, 100) / 100));
++  let linhas3 = [o.linha3];
++  if (ajusta3(o.linha3) < 78 && o.linha3.includes(" ")) {
++    const palavras = o.linha3.split(" ");
++    let melhor = 1, menorDif = Infinity;
++    for (let i = 1; i < palavras.length; i++) {
++      const dif = Math.abs(larg(palavras.slice(0, i).join(" "), 100) - larg(palavras.slice(i).join(" "), 100));
++      if (dif < menorDif) { menorDif = dif; melhor = i; }
++    }
++    linhas3 = [palavras.slice(0, melhor).join(" "), palavras.slice(melhor).join(" ")];
++  }
++  const tam3 = Math.min(...linhas3.map(ajusta3), linhas3.length > 1 ? 96 : 122);
++  const w3 = Math.min(960, Math.max(...linhas3.map((l) => larg(l, tam3))) + 120);
++  const h3 = linhas3.length > 1 ? 250 : 160, y3 = y2 + h2 - 16;
++  const x3 = (W - w3) / 2;
++  const t3 = linhas3.map((l, i) => {
++    const cy = y3 + (h3 / (linhas3.length * 2)) * (2 * i + 1);
++    return `<path d="${caminho(l, W / 2 - larg(l, tam3) / 2, baseline(cy, tam3), tam3)}" fill="${VERMELHO}"/>`;
++  }).join("");
++
++  const faixa = (x: number, y: number, w: number, h: number, cor: string, raio: number) =>
++    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${raio}" fill="${cor}" stroke="${INK}" stroke-width="7"/>`;
++
++  const overlay = Buffer.from(`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
++    <defs>
++      <linearGradient id="sombra" x1="0" y1="0" x2="0" y2="1">
++        <stop offset="0" stop-color="#05060b" stop-opacity=".30"/><stop offset=".22" stop-color="#05060b" stop-opacity="0"/>
++        <stop offset=".52" stop-color="#05060b" stop-opacity="0"/><stop offset=".80" stop-color="#05060b" stop-opacity=".55"/>
++        <stop offset="1" stop-color="#05060b" stop-opacity=".78"/>
++      </linearGradient>
++      <filter id="d" x="-10%" y="-20%" width="120%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000" flood-opacity=".55"/></filter>
++    </defs>
++    <rect width="${W}" height="${H}" fill="url(#sombra)"/>
++    <g filter="url(#d)">${faixa(x1, y1, w1, h1, "#fff", 40)}</g>${circulo}${animes}${pill}
++    <g filter="url(#d)">${faixa(x2, y2, w2, h2, AMARELO, 34)}</g>${t2}
++    <g filter="url(#d)">${faixa(x3, y3, w3, h3, "#fff", 40)}</g>${t3}
++  </svg>`);
++
++  return sharp(fundo).composite([{ input: overlay }]).png().toBuffer();
++}
++
++// ---------- texto automático a partir de data/top.json ----------
++const CRITERIOS: { chave: RegExp; destaque: string; linha2: string }[] = [
++  { chave: /melhor avaliados/i, destaque: "MELHOR", linha2: "AVALIADOS" },
++  { chave: /mais populares/i, destaque: "MAIS", linha2: "POPULARES" },
++  { chave: /em alta agora/i, destaque: "EM ALTA", linha2: "AGORA" },
++];
++const ARTIGO_ESTACAO: Record<string, string> = { inverno: "NO INVERNO", primavera: "NA PRIMAVERA", verão: "NO VERÃO", verao: "NO VERÃO", outono: "NO OUTONO" };
++
++// Deduz as três linhas do título a partir do título e do subtítulo gravados pelo comando `top`.
++export function textoAutomatico(titulo: string, subtitulo: string) {
++  const crit = CRITERIOS.find((c) => c.chave.test(subtitulo)) ?? { destaque: "MAIS", linha2: "ASSISTIDOS" };
++  const nucleo = /ANIMES\s+(DE .+)$/i.exec(titulo.trim())?.[1]?.toUpperCase() ?? "";
++  const periodo = subtitulo.split("·").map((p) => p.trim()).find((p) => /^(\d{4}|inverno|primavera|verão|verao|outono|a partir de|até)/i.test(p)) ?? "";
++  let quando = "";
++  const estacao = /^(inverno|primavera|verão|verao|outono)\s*(\d{4})?/i.exec(periodo);
++  if (estacao) quando = `${ARTIGO_ESTACAO[estacao[1].toLowerCase()]}${estacao[2] ? " " + estacao[2] : ""}`;
++  else if (/^\d{4}$/.test(periodo)) quando = `EM ${periodo}`;
++  else if (/^\d{4} a \d{4}$/.test(periodo)) quando = `DE ${periodo.toUpperCase()}`;
++  else if (periodo) quando = periodo.toUpperCase();
++  const linha3 = [nucleo, quando].filter(Boolean).join(" ") || "NO MUNDO";
++  return { destaque: crit.destaque, linha2: crit.linha2, linha3 };
++}
+-- 
+2.43.0
+
