@@ -156,7 +156,11 @@ class QueueService:
     def clear_logs(self):
         with self.lock:
             self.logs.clear()
-            return self.snapshot()
+            return self.logs_snapshot()
+
+    def logs_snapshot(self):
+        with self.lock:
+            return {"logs": list(self.logs), "total": len(self.logs)}
 
     def snapshot(self):
         with self.lock:
@@ -179,7 +183,6 @@ class QueueService:
                 "totals": totals,
                 "last_error": self.last_error,
                 "last_summary": self.last_summary,
-                "logs": self.logs[-100:],
                 "project_root": str(Path(__file__).resolve().parents[1]),
                 "download_dir": str(DOWNLOAD_DIR.resolve()),
             }
@@ -373,6 +376,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(service.episodes(int(query.get("anime_id", ["0"])[0])))
             if parsed.path == "/queue":
                 return self.send_json(service.snapshot())
+            if parsed.path == "/logs":
+                return self.send_json(service.logs_snapshot())
             return self.send_json({"erro": "Rota não encontrada."}, 404)
         except (ValueError, TypeError) as exc:
             return self.send_json({"erro": str(exc)}, 400)
