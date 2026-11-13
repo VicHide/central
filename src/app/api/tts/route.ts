@@ -77,14 +77,47 @@ export async function POST(req: Request) {
       return Response.json({ erro: "O Speko retornou um formato de resposta inesperado." }, { status: 502 });
     }
 
+    const audioHeaders = {
+      "Cache-Control": "no-store",
+      "X-TTS-Provider": upstream.headers.get("x-speko-provider") || "xai",
+      "X-TTS-Model": upstream.headers.get("x-speko-model") || "tts",
+    };
+
+    // Browsers cannot play raw PCM. Wrap signed 16-bit little-endian mono PCM
+    // in a WAV container so the preview works without transcoding the samples.
+    if (contentType.toLowerCase().startsWith("audio/pcm")) {
+      const rateMatch = contentType.match(/rate=(\\d+)/i);
+      const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+      const pcm = Buffer.from(await upstream.arrayBuffer());
+
+      if (pcm.length === 0 || pcm.length % 2 !== 0) {
+        return Response.json({ erro: "O Speko retornou um PCM inválido ou incompleto." }, { status: 502 });
+      }
+
+      const wavHeader = Buffer.alloc(44);
+      wavHeader.write("RIFF", 0);
+      wavHeader.writeUInt32LE(36 + pcm.length, 4);
+      wavHeader.write("WAVE", 8);
+      wavHeader.write("fmt ", 12);
+      wavHeader.writeUInt32LE(16, 16);
+      wavHeader.writeUInt16LE(1, 20);
+      wavHeader.writeUInt16LE(1, 22);
+      wavHeader.writeUInt32LE(sampleRate, 24);
+      wavHeader.writeUInt32LE(sampleRate * 2, 28);
+      wavHeader.writeUInt16LE(2, 32);
+      wavHeader.writeUInt16LE(16, 34);
+      wavHeader.write("data", 36);
+      wavHeader.writeUInt32LE(pcm.length, 40);
+
+      return new Response(Buffer.concat([wavHeader, pcm]), {
+        status: 200,
+        headers: { ...audioHeaders, "Content-Type": "audio/wav" },
+      });
+    }
+
     return new Response(upstream.body, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "no-store",
-        "X-TTS-Provider": upstream.headers.get("x-speko-provider") || "xai",
-        "X-TTS-Model": upstream.headers.get("x-speko-model") || "tts",
-      },
+      headers: { ...audioHeaders, "Content-Type": contentType },
     });
   } catch (error) {
     const message = error instanceof Error && error.name === "TimeoutError"
