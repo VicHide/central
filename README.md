@@ -97,3 +97,18 @@ Painel > Gerador de thumbnails gera duas opções por clique:
 O título é desenhado como vetor com a fonte Luckiest Guy (em `src/assets/fonts`, licença Apache 2.0), então sai igual em qualquer
 computador. O campo "Tema" cria uma segunda linha em roxo (ex.: `200 ANIMES` + `OLHOS`). O contorno branco e escuro do personagem,
 a sombra, as medalhas numeradas e a seta são gerados automaticamente. Coloque os recortes em `acervo/pngs/`.
+
+
+## Narração dos vídeos de comparação (Edge TTS)
+
+A comparação usa a voz **Antonio (pt-BR-AntonioNeural)** do Edge TTS, com velocidade levemente acelerada. A geração é gratuita e não exige chave da ElevenLabs.
+
+Instale a dependência Python uma única vez:
+
+```powershell
+py -m pip install -r requirements-tts.txt
+```
+
+Depois reinicie o painel com `npm run painel`. O botão **Gerar voz e renderizar vídeo** gera os áudios por cena e inicia o render do Remotion. É necessária conexão com a internet para sintetizar a voz.
+
+Se o comando `py` não existir, use `python -m pip install -r requirements-tts.txt` e confirme que `python` está disponível no PATH.
