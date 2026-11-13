@@ -25,7 +25,8 @@ export async function POST(request: Request) {
   const action = String(body.action || "queue");
   delete body.action;
   try {
-    const response = await callFanCapsApi("/" + action, "POST", body);
+    const apiPath = action === "clear_logs" ? "/logs/clear" : "/" + action;
+    const response = await callFanCapsApi(apiPath, "POST", body);
     if (response.ok && ["start", "pause", "resume", "clear", "clear_logs", "remove", "move"].includes(action)) {
       const snapshot = await (await callFanCapsApi("/queue", "GET")).json();
       if (snapshot && snapshot.totals && Array.isArray(snapshot.items)) syncFanCapsJob(snapshot);
