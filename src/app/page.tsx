@@ -60,6 +60,9 @@ export default function Page() {
   const [musica, setMusica] = useState(true);
   const setF = (k: keyof typeof fil) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => setFil({ ...fil, [k]: e.target.value });
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [pagina, setPagina] = useState<"producao" | "criar" | "biblioteca" | "thumbnails" | "publicacao">("producao");
+  const [jobsBusy, setJobsBusy] = useState(false);
+  const [jobsMsg, setJobsMsg] = useState("");
   const [acervo, setAcervo] = useState<Acervo>({ animes: [], promos: 0 });
   const [saidas, setSaidas] = useState<Saida[]>([]);
   const [estado, setEstado] = useState<Estado>({ animes: 0, promos: 0, navegador: false, musicas: 0 });
@@ -361,16 +364,13 @@ export default function Page() {
     <>
       <aside className="sidebar" aria-label="Navegação">
         <a className="brand" href="#novo"><span className="mark" aria-hidden="true">Q</span><span><strong>Central do Canal</strong><small>Estúdio de quiz</small></span></a>
-        <nav>
-          <a className="nav-link active" href="#novo">Novo vídeo</a>
-          <a className="nav-link" href="#comparacao" onClick={() => setModo("comparacao")}>Comparação</a>
-          <a className="nav-link" href="#top">Top 10 (Short)</a>
-          <a className="nav-link" href="#projetos">Produção</a>
-          <a className="nav-link" href="#acervo">Acervo</a>
-          <a className="nav-link" href="#musicas">Músicas</a>
+        <nav aria-label="Seções do painel">
+          <button type="button" className={pagina === "producao" ? "nav-link active" : "nav-link"} onClick={() => setPagina("producao")}>Produção</button>
+          <button type="button" className={pagina === "criar" ? "nav-link active" : "nav-link"} onClick={() => setPagina("criar")}>Criar projeto</button>
+          <button type="button" className={pagina === "biblioteca" ? "nav-link active" : "nav-link"} onClick={() => setPagina("biblioteca")}>Biblioteca</button>
+          <button type="button" className={pagina === "thumbnails" ? "nav-link active" : "nav-link"} onClick={() => setPagina("thumbnails")}>Thumbnails</button>
+          <button type="button" className={pagina === "publicacao" ? "nav-link active" : "nav-link"} onClick={() => setPagina("publicacao")}>Publicação</button>
           <a className="nav-link" href="/voz">Teste de voz · Leo</a>
-          <a className="nav-link" href="#thumbnail">Thumbnails</a>
-          <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
           <a className="nav-link" href="/frames">Detector de frames</a>
         </nav>
@@ -379,7 +379,7 @@ export default function Page() {
 
       <main className="main">
         <header className="topbar">
-          <div className="crumb">Central do Canal <span>/</span> Produção</div>
+          <div className="crumb">Central do Canal <span>/</span> {({ producao: "Produção", criar: "Criar projeto", biblioteca: "Biblioteca", thumbnails: "Thumbnails", publicacao: "Publicação" })[pagina]}</div>
           <div className={`top-status ${estado.animes > 0 ? "ready" : "warn"}`} aria-live="polite">
             {estado.animes > 0 ? `Acervo pronto · ${estado.animes} animes · ${estado.promos} promos` : "Acervo vazio: adicione pastas em acervo/"}
             {" · "}{estado.musicas > 0 ? `${estado.musicas} faixa(s) de música` : "sem música (veja data/musicas.json)"}{" · "}{estado.navegador ? "navegador do Remotion instalado" : "navegador baixa no 1º render"}
@@ -387,6 +387,7 @@ export default function Page() {
         </header>
 
         <section className="workspace">
+          {pagina === "criar" && <>
           <div className="intro-row" id="novo">
             <div>
               <h1>Do acervo ao vídeo.</h1>
@@ -559,36 +560,61 @@ export default function Page() {
             </div>
           </section>
 
-          <section className="jobs-section" id="projetos">
-            <div className="jobs-heading"><div><h2>Gerenciador de produção</h2><p>Execuções atuais e histórico local, preservado mesmo após reiniciar o painel. Atualização a cada 3 segundos.</p></div><span className="job-count">{jobs.filter((j) => j.status === "rodando").length} em andamento · {jobs.filter((j) => j.status === "ok").length} concluídas · {jobs.filter((j) => j.status === "erro").length} com erro</span></div>
-            <div className="jobs-list">
-              {jobs.length === 0 && <p className="empty-state">Nenhuma tarefa ainda. Gere o primeiro projeto acima.</p>}
-              {jobs.map((j, i) => (
-                <div className="job" key={j.id}>
-                  <div className="job-row">
-                    <div>
-                      <div className="job-topic">{j.titulo}</div>
-                      {j.meta && <div className="job-meta">{j.meta.resumo} · ~{mmss(j.meta.duracaoSeg)} de vídeo{j.meta.render ? " · com render" : ""}</div>}
-                    </div>
-                    <div className="job-stage">{j.etapa ?? "Iniciando"}{j.pct !== undefined ? ` · ${j.pct}%` : ""}</div>
-                    <div className="job-state"><span className={`state-dot ${j.status}`} />{ROTULO[j.status]} · {segs(j)} s</div>
-                  </div>
-                  <div className="production-stages">
-                    {etapas(j).map((e) => (
-                      <section className="production-stage" key={e.nome}>
-                        <div className="stage-heading"><h3>{e.nome}</h3><span className="stage-percent">{e.pct === null ? "Aguardando" : `${e.pct}%`}</span></div>
-                        <p className="stage-owner">{e.dono}</p>
-                        <progress max={100} value={e.pct ?? 0} aria-label={e.nome} />
-                        <p className="stage-detail">{e.detalhe}</p>
-                      </section>
-                    ))}
-                  </div>
-                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("\n")}</pre></details>}
-                </div>
-              ))}
-            </div>
-          </section>
+          </>}
 
+          {pagina === "producao" && <section className="dashboard-view">
+            <div className="dashboard-intro">
+              <div><span className="dashboard-kicker">CENTRAL DO CANAL</span><h1>Visão geral da produção</h1><p>Acompanhe execuções, confira resultados e organize o histórico.</p></div>
+              <button className="primary" type="button" onClick={() => setPagina("criar")}>＋ Novo projeto</button>
+            </div>
+            <div className="dashboard-stats">
+              <div><span>Em andamento</span><strong>{jobs.filter((j) => j.status === "rodando").length}</strong></div>
+              <div><span>Finalizados</span><strong>{jobs.filter((j) => j.status === "ok").length}</strong></div>
+              <div><span>Com erro</span><strong>{jobs.filter((j) => j.status === "erro").length}</strong></div>
+              <div><span>Saídas geradas</span><strong>{saidas.length}</strong></div>
+            </div>
+            <section className="jobs-section dashboard-jobs">
+              <div className="jobs-heading"><div><h2>Em andamento</h2><p>Tarefas que ainda estão sendo processadas. Atualização automática a cada 3 segundos.</p></div><span className="job-count">{jobs.filter((j) => j.status === "rodando").length} ativa(s)</span></div>
+              <div className="dashboard-active">
+                {jobs.filter((j) => j.status === "rodando").length === 0 && <p className="empty-state">Nenhuma produção em andamento no momento.</p>}
+                {jobs.filter((j) => j.status === "rodando").map((j) => <article className="dashboard-job active-job" key={j.id}>
+                  <div className="dashboard-job-head"><div><span className="job-overline">EM PRODUÇÃO</span><h3>{j.titulo}</h3><p>{j.meta ? `${j.meta.resumo} · ~${mmss(j.meta.duracaoSeg)} de vídeo${j.meta.render ? " · com render" : ""}` : j.detalhe ?? "Processando tarefa"}</p></div><span className="job-pill running"><i />{ROTULO[j.status]}</span></div>
+                  <div className="dashboard-progress"><div><span>{j.etapa ?? "Iniciando"}</span><strong>{j.pct ?? 0}%</strong></div><progress max={100} value={j.pct ?? 0} /></div>
+                  <div className="production-stages">{etapas(j).map((e) => <section className="production-stage" key={e.nome}><div className="stage-heading"><h3>{e.nome}</h3><span className="stage-percent">{e.pct === null ? "Aguardando" : `${e.pct}%`}</span></div><p className="stage-owner">{e.dono}</p><progress max={100} value={e.pct ?? 0} aria-label={e.nome} /><p className="stage-detail">{e.detalhe}</p></section>)}</div>
+                  {j.log.length > 0 && <details className="log"><summary>Ver registro</summary><pre>{j.log.join("\n")}</pre></details>}
+                </article>)}
+              </div>
+            </section>
+            <section className="jobs-section dashboard-jobs">
+              <div className="jobs-heading"><div><h2>Erros</h2><p>Execuções que terminaram sem sucesso, mantidas separadas do histórico concluído.</p></div><span className="job-count">{jobs.filter((j) => j.status === "erro").length} registro(s)</span></div>
+              <div className="dashboard-compact-list">
+                {jobs.filter((j) => j.status === "erro").length === 0 && <p className="empty-state">Nenhum erro registrado.</p>}
+                {jobs.filter((j) => j.status === "erro").map((j) => <article className="dashboard-compact error-compact" key={j.id}><div><strong>{j.titulo}</strong><span>{j.etapa ?? "Encerrado com erro"} · {new Date(j.fim ?? j.inicio).toLocaleString("pt-BR")}</span>{j.detalhe && <small>{j.detalhe}</small>}</div><details className="log"><summary>Registro</summary><pre>{j.log.join("\n")}</pre></details></article>)}
+              </div>
+            </section>
+            <section className="jobs-section dashboard-jobs">
+              <div className="jobs-heading"><div><h2>Finalizados</h2><p>Histórico compacto. Remover registros não apaga vídeos, imagens ou outros arquivos gerados.</p></div><div className="completed-actions"><span className="job-count">{jobs.filter((j) => j.status === "ok").length} registro(s)</span><button className="secondary danger-outline" type="button" disabled={jobsBusy || jobs.filter((j) => j.status === "ok").length === 0} onClick={async () => {
+                const total = jobs.filter((j) => j.status === "ok").length;
+                if (!window.confirm(`Remover os ${total} registros finalizados do histórico? Os arquivos gerados serão preservados.`)) return;
+                setJobsBusy(true); setJobsMsg("");
+                try { const r = await fetch("/api/jobs", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limparConcluidos: true }) }); const d = await r.json(); if (!r.ok) throw new Error(d.erro ?? "Falha ao limpar histórico."); setJobs((atual) => atual.filter((j) => j.status !== "ok")); setJobsMsg(`${d.removidos} registro(s) removido(s) do histórico.`); }
+                catch (e) { setJobsMsg(e instanceof Error ? e.message : "Não foi possível limpar o histórico."); }
+                finally { setJobsBusy(false); }
+              }}>{jobsBusy ? "Aguarde…" : "Limpar finalizados"}</button></div></div>
+              {jobsMsg && <p className="dashboard-message" role="status">{jobsMsg}</p>}
+              <div className="dashboard-compact-list">
+                {jobs.filter((j) => j.status === "ok").length === 0 && <p className="empty-state">Nenhuma tarefa finalizada ainda.</p>}
+                {jobs.filter((j) => j.status === "ok").map((j) => <article className="dashboard-compact" key={j.id}><div><strong>{j.titulo}</strong><span>{j.etapa ?? "Concluído"} · {new Date(j.fim ?? j.inicio).toLocaleString("pt-BR")} · {segs(j)} s</span>{j.meta && <small>{j.meta.resumo} · ~{mmss(j.meta.duracaoSeg)} de vídeo</small>}</div><button type="button" className="text-danger" disabled={jobsBusy} onClick={async () => {
+                  if (!window.confirm(`Remover "${j.titulo}" do histórico? Os arquivos gerados serão preservados.`)) return;
+                  setJobsBusy(true); setJobsMsg("");
+                  try { const r = await fetch("/api/jobs", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: j.id }) }); const d = await r.json(); if (!r.ok) throw new Error(d.erro ?? "Falha ao remover registro."); setJobs((atual) => atual.filter((item) => item.id !== j.id)); }
+                  catch (e) { setJobsMsg(e instanceof Error ? e.message : "Não foi possível remover o registro."); }
+                  finally { setJobsBusy(false); }
+                }}>Remover</button></article>)}
+              </div>
+            </section>
+          </section>}
+          {pagina === "biblioteca" && <>
           <section className="jobs-section" id="acervo">
             <div className="jobs-heading"><div><h2>Acervo</h2><p>{acervo.animes.length} animes · {acervo.promos} imagens em promos/. Adicione pastas em acervo/ no seu computador.</p></div></div>
             {acervo.animes.length > 0 && (
@@ -618,6 +644,9 @@ export default function Page() {
             </div>
           </section>
 
+          </>}
+
+          {pagina === "thumbnails" && <>
           <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
             <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um personagem PNG, e gera duas opções: personagem no centro e personagem na lateral.</p></div><span className="step-label">1280 × 720</span></div>
             <div className="form-body" style={{ marginTop: 20 }}>
@@ -701,6 +730,9 @@ export default function Page() {
             </div>
           </section>
 
+          </>}
+
+          {pagina === "publicacao" && <>
           <section className="composer" id="tags" style={{ marginTop: 14 }}>
             <div className="section-head"><div><h2>Tags para YouTube</h2><p>Gera tags com base nos animes, gêneros e informações do último projeto produzido.</p></div><span className="step-label">Publicação</span></div>
             <div className="form-body" style={{ marginTop: 20 }}>
@@ -733,6 +765,8 @@ export default function Page() {
               ))}
             </div>
           </section>
+
+          </>}
 
           <footer className="footer"><span>Central do Canal</span><span>Roda só neste computador · nada é publicado automaticamente</span></footer>
         </section>
