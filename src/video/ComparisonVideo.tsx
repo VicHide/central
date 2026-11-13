@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Freeze,
   Img,
   OffthreadVideo,
@@ -20,6 +21,7 @@ export type ComparisonSegment = {
   active: ComparisonSide;
   speech: string;
   expression?: ComparisonExpression;
+  audio?: string;
   leftStill: string;
   rightStill: string;
   leftVideoFrom?: number;
@@ -135,6 +137,7 @@ const Scene: React.FC<{
       }}>
         <MascotStage active={segment.active} expression={segment.expression ?? "neutral"} frame={frame} />
       </div>
+      {segment.audio && <Audio src={staticFile(segment.audio)} />}
       <div style={{
         position: "absolute", left: 55, right: 55, bottom: 180,
         padding: "24px 28px", borderRadius: 20,
