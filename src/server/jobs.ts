@@ -47,6 +47,24 @@ function persisteJobs() {
 persisteJobs();
 
 export const listaJobs = () => jobs.slice(-20).reverse();
+
+export function removeJobConcluido(id: string): boolean {
+  const index = jobs.findIndex((job) => job.id === id && job.status === "ok");
+  if (index < 0) return false;
+  jobs.splice(index, 1);
+  persisteJobs();
+  return true;
+}
+
+export function removeJobsConcluidos(): number {
+  const antes = jobs.length;
+  for (let i = jobs.length - 1; i >= 0; i--) {
+    if (jobs[i].status === "ok") jobs.splice(i, 1);
+  }
+  const removidos = antes - jobs.length;
+  if (removidos > 0) persisteJobs();
+  return removidos;
+}
 export const temJobRodando = () => jobs.some((j) => j.status === "rodando");
 
 // Só recebe argumentos já validados (enum e números); nunca texto livre do usuário.
