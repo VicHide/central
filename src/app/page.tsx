@@ -278,6 +278,7 @@ export default function Page() {
         <a className="brand" href="#novo"><span className="mark" aria-hidden="true">Q</span><span><strong>Central do Canal</strong><small>Estúdio de quiz</small></span></a>
         <nav>
           <a className="nav-link active" href="#novo">Novo vídeo</a>
+          <a className="nav-link" href="#comparacao">Comparação</a>
           <a className="nav-link" href="#top">Top 10 (Short)</a>
           <a className="nav-link" href="#projetos">Produção</a>
           <a className="nav-link" href="#acervo">Acervo</a>
@@ -316,10 +317,12 @@ export default function Page() {
                   <label>Formato
                     <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro" | "comparacao")}>
                       <option value="zoom">Zoom e revelação</option>
-                      <option value="quatro">4 imagens com dicas</option>\n                      <option value="comparacao">Comparação</option>
+                      <option value="quatro">4 imagens com dicas</option>
+                      <option value="comparacao">Comparação</option>
                     </select>
                   </label>
-                  {modo !== "comparacao" && <>\n                    <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
+                  {modo !== "comparacao" && <>
+                    <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
                     {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
                     <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
                   </div>
@@ -333,12 +336,14 @@ export default function Page() {
                     </div>
                   </div>
                   {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
-                  {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}\n                  </>}
+                  {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
+                  </>}
               </div>
             </section>
           </div>
 
-          {modo === "comparacao" && (\n            <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
+          {modo === "comparacao" && (
+            <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
               <div className="section-head">
                 <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel.</p></div>
                 <span className="step-label">IA · Comparação</span>
@@ -415,7 +420,10 @@ export default function Page() {
                   <p className="helper">A revisão do roteiro está pronta. A próxima etapa é conectar a voz e o render à fila de produção.</p>
                 </div>}
               </div>
-            </section>\n          )}\n\n          <section className="composer" id="top" style={{ marginTop: 14 }}>
+            </section>
+          )}
+
+          <section className="composer" id="top" style={{ marginTop: 14 }}>
             <div className="section-head"><div><h2>Top 10 para Shorts</h2><p>Ranking do AniList por gênero, temporada ou popularidade, com capas oficiais e contagem regressiva.</p></div><span className="step-label">AniList</span></div>
             <div className="form-body" style={{ marginTop: 24 }}>
               <div className="fields">
@@ -478,7 +486,8 @@ export default function Page() {
                       </section>
                     ))}
                   </div>
-                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("\n")}</pre></details>}
+                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("
+")}</pre></details>}
                 </div>
               ))}
             </div>
