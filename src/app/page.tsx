@@ -10,6 +10,8 @@ type Acervo = { animes: { pasta: string; imagens: number; usadas: number }[]; pr
 type Saida = { nome: string; kb: number; data: number };
 type Estado = { animes: number; promos: number; navegador: boolean; musicas: number };
 type Faixa = { arquivo: string; titulo: string; artista?: string; credito?: string; volume?: number; ativa?: boolean };
+type ComparacaoMedia = { arquivo: string; nome: string; tipo: "imagem" | "video"; bytes: number };
+type ComparacaoCena = { label: string; active: "left" | "right" | "none"; speech: string; expression: "neutral" | "doubt" | "surprise" };
 
 
 const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
@@ -83,6 +85,17 @@ export default function Page() {
   const [musicaVolume, setMusicaVolume] = useState("0.18");
   const [musicaMsg, setMusicaMsg] = useState("");
   const [musicaLoading, setMusicaLoading] = useState(false);
+  const [compTitulo, setCompTitulo] = useState("");
+  const [compLabelEsq, setCompLabelEsq] = useState("");
+  const [compLabelDir, setCompLabelDir] = useState("");
+  const [compContextoEsq, setCompContextoEsq] = useState("");
+  const [compContextoDir, setCompContextoDir] = useState("");
+  const [compMediaEsq, setCompMediaEsq] = useState<ComparacaoMedia | null>(null);
+  const [compMediaDir, setCompMediaDir] = useState<ComparacaoMedia | null>(null);
+  const [compUpload, setCompUpload] = useState<"left" | "right" | null>(null);
+  const [compCenas, setCompCenas] = useState<ComparacaoCena[]>([]);
+  const [compMsg, setCompMsg] = useState("");
+  const [compLoading, setCompLoading] = useState(false);
 
   const carregaMusicas = async () => {
     try { const d = await buscar<{ faixas: Faixa[] }>("/api/musicas"); setFaixas(d.faixas ?? []); }
@@ -203,6 +216,53 @@ export default function Page() {
     finally { setTopThumbLoading(false); }
   };
 
+  const enviaMidiaComparacao = async (lado: "left" | "right", arquivo?: File) => {
+    if (!arquivo) return;
+    setCompUpload(lado); setCompMsg("");
+    try {
+      const form = new FormData();
+      form.set("arquivo", arquivo);
+      const r = await fetch("/api/comparacao/upload", { method: "POST", body: form });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível enviar o arquivo.");
+      const media: ComparacaoMedia = d;
+      if (lado === "left") setCompMediaEsq(media); else setCompMediaDir(media);
+      setCompMsg(`${arquivo.name} enviado.`);
+    } catch (e) {
+      setCompMsg(e instanceof Error ? e.message : "Erro ao enviar o arquivo.");
+    } finally {
+      setCompUpload(null);
+    }
+  };
+
+  const gerarRoteiroComparacao = async () => {
+    setCompLoading(true); setCompMsg("");
+    try {
+      const r = await fetch("/api/comparacao/roteiro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: compTitulo, leftLabel: compLabelEsq, rightLabel: compLabelDir,
+          leftContext: compContextoEsq, rightContext: compContextoDir,
+          leftMedia: compMediaEsq?.arquivo, rightMedia: compMediaDir?.arquivo,
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível gerar o roteiro.");
+      setCompTitulo(d.title || compTitulo);
+      setCompCenas(d.scenes ?? []);
+      setCompMsg("Roteiro gerado. Revise e edite as falas antes de continuar.");
+    } catch (e) {
+      setCompMsg(e instanceof Error ? e.message : "Erro ao gerar o roteiro.");
+    } finally {
+      setCompLoading(false);
+    }
+  };
+
+  const atualizaCenaComparacao = (index: number, campo: keyof ComparacaoCena, valor: string) => {
+    setCompCenas((atual) => atual.map((cena, i) => i === index ? { ...cena, [campo]: valor } as ComparacaoCena : cena));
+  };
+
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
     setTimeout(() => window.open(d.url, "_blank"), 2500);
@@ -277,6 +337,85 @@ export default function Page() {
               </div>
             </section>
           </div>
+
+          <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
+            <div className="section-head">
+              <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel.</p></div>
+              <span className="step-label">IA · Comparação</span>
+            </div>
+            <div className="form-body comparison-form">
+              <div className="fields">
+                <label>Tema da comparação
+                  <input type="text" value={compTitulo} onChange={(e) => setCompTitulo(e.target.value)} placeholder="Ex.: Mangekyou vs. Eternal Mangekyou" />
+                </label>
+                <label>Nome do quadro esquerdo
+                  <input type="text" value={compLabelEsq} onChange={(e) => setCompLabelEsq(e.target.value)} placeholder="Ex.: Mangekyou" />
+                </label>
+                <label>Nome do quadro direito
+                  <input type="text" value={compLabelDir} onChange={(e) => setCompLabelDir(e.target.value)} placeholder="Ex.: Eternal Mangekyou" />
+                </label>
+              </div>
+              <div className="comparison-media-grid">
+                <div className="comparison-media">
+                  <strong>Quadro 1 · Esquerdo</strong>
+                  {compMediaEsq ? <div className="comparison-file">
+                    {compMediaEsq.tipo === "imagem" ? <img src={"/" + compMediaEsq.arquivo} alt="Prévia do quadro esquerdo" /> : <div className="comparison-video-file">Vídeo enviado</div>}
+                    <span>{compMediaEsq.nome}</span>
+                    <button type="button" className="secondary" onClick={() => setCompMediaEsq(null)}>Remover</button>
+                  </div> : <label className="comparison-upload">
+                    <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("left", e.target.files?.[0])} disabled={compUpload !== null} />
+                  </label>}
+                  <label>Contexto adicional
+                    <textarea value={compContextoEsq} onChange={(e) => setCompContextoEsq(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
+                  </label>
+                </div>
+                <div className="comparison-media">
+                  <strong>Quadro 2 · Direito</strong>
+                  {compMediaDir ? <div className="comparison-file">
+                    {compMediaDir.tipo === "imagem" ? <img src={"/" + compMediaDir.arquivo} alt="Prévia do quadro direito" /> : <div className="comparison-video-file">Vídeo enviado</div>}
+                    <span>{compMediaDir.nome}</span>
+                    <button type="button" className="secondary" onClick={() => setCompMediaDir(null)}>Remover</button>
+                  </div> : <label className="comparison-upload">
+                    <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("right", e.target.files?.[0])} disabled={compUpload !== null} />
+                  </label>}
+                  <label>Contexto adicional
+                    <textarea value={compContextoDir} onChange={(e) => setCompContextoDir(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
+                  </label>
+                </div>
+              </div>
+              <div className="comparison-actions">
+                <p className="helper">A IA cria cinco cenas: abertura, apresentação de cada quadro, comparação e pergunta final. Você poderá editar todas as falas.</p>
+                <button className="primary" onClick={gerarRoteiroComparacao} disabled={compLoading || compUpload !== null}>
+                  {compLoading ? "Gerando roteiro…" : "Gerar roteiro com IA"}
+                </button>
+              </div>
+              {compMsg && <p className="config-note" role="status">{compMsg}</p>}
+              {compCenas.length > 0 && <div className="comparison-scenes">
+                <div className="comparison-scenes-heading"><h3>Roteiro gerado</h3><span>{compCenas.length} cenas · editável</span></div>
+                {compCenas.map((cena, index) => <div className="comparison-scene" key={index}>
+                  <div className="comparison-scene-title"><strong>Cena {index + 1}</strong><span>{cena.label}</span></div>
+                  <div className="fields">
+                    <label>Foco
+                      <select value={cena.active} onChange={(e) => atualizaCenaComparacao(index, "active", e.target.value)}>
+                        <option value="none">Os dois quadros</option><option value="left">Quadro esquerdo</option><option value="right">Quadro direito</option>
+                      </select>
+                    </label>
+                    <label>Expressão do mascote
+                      <select value={cena.expression} onChange={(e) => atualizaCenaComparacao(index, "expression", e.target.value)}>
+                        <option value="neutral">Neutra</option><option value="doubt">Dúvida</option><option value="surprise">Surpresa</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label>Texto da narração
+                    <textarea value={cena.speech} onChange={(e) => atualizaCenaComparacao(index, "speech", e.target.value)} rows={3} />
+                  </label>
+                </div>)}
+                <p className="helper">A revisão do roteiro está pronta. A próxima etapa é conectar a voz e o render à fila de produção.</p>
+              </div>}
+            </div>
+          </section>
 
           <section className="composer" id="top" style={{ marginTop: 14 }}>
             <div className="section-head"><div><h2>Top 10 para Shorts</h2><p>Ranking do AniList por gênero, temporada ou popularidade, com capas oficiais e contagem regressiva.</p></div><span className="step-label">AniList</span></div>
