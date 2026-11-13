@@ -26,6 +26,7 @@ export default function FanCapsPage() {
   const [queue, setQueue] = useState<Queue | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<"queue" | "logs">("queue");
 
   const loadQueue = useCallback(async () => {
     try { setQueue(await getJson<Queue>("/api/fancaps?resource=queue")); }
@@ -81,7 +82,6 @@ export default function FanCapsPage() {
           <Link href="/#acervo">Acervo</Link>
           <Link href="/#saidas">Saídas</Link>
           <span className={styles.active}>FanCaps Downloader</span>
-          <Link href="/picker">Seletor de imagens</Link>
         </nav>
         <div className={styles.sidebarNote}>Produção, acervo e ferramentas em um só lugar.</div>
       </aside>
@@ -105,6 +105,8 @@ export default function FanCapsPage() {
           </section>
 
           <section className={styles.queuePanel}>
+            <div className={styles.panelHead}><div><h2>FanCaps</h2><p>Fila de downloads e histórico de atividade.</p></div><div className={styles.controls}><button className={styles.secondary} aria-pressed={view === "queue"} onClick={() => setView("queue")}>Fila</button><button className={styles.secondary} aria-pressed={view === "logs"} onClick={() => setView("logs")}>Logs ({queue?.logs?.length ?? 0})</button></div></div>
+            {view === "queue" && <>
             <div className={styles.panelHead}><div><h2>Fila de downloads</h2><p>{queue?.state === "running" ? "A fila está sendo processada." : queue?.state === "paused" ? "A fila está pausada." : "Adicione episódios pelo catálogo abaixo."}</p></div>
               <div className={styles.controls}>
                 {!queue?.active ? <button className={styles.primary} disabled={busy || !queue?.items.some((x) => x.status === "waiting")} onClick={() => action("start")}>Iniciar fila</button> :
@@ -128,17 +130,18 @@ export default function FanCapsPage() {
             </div>
             {queue?.last_error && <p className={styles.errorNote}>{queue.last_error}</p>}
             {queue?.last_summary && <p className={styles.summaryNote}>Última execução: {queue.last_summary.result === "completed" ? "concluída" : queue.last_summary.result === "blocked" ? "interrompida por bloqueio do servidor" : "encerrada com erro"}.</p>}
-            <section className={styles.logsPanel}>
-              <div className={styles.logsHeading}><div><h3>Registro de atividade</h3><p>Eventos recentes da fila e dos downloads.</p></div><span>{queue?.logs?.length ?? 0} eventos</span></div>
+            </>}
+            {view === "logs" && <section className={styles.logsPanel}>
+              <div className={styles.logsHeading}><div><h3>Registro de atividade</h3><p>Eventos recentes da fila e dos downloads.</p></div><div className={styles.controls}><span>{queue?.logs?.length ?? 0} eventos</span><button className={styles.secondary} disabled={busy || !queue?.logs?.length} onClick={() => { if (window.confirm("Limpar somente o histórico de logs? A fila e os arquivos baixados serão preservados.")) action("clear_logs"); }}>Limpar logs</button></div></div>
               <div className={styles.logsList}>
-                {!queue?.logs?.length && <p className={styles.empty}>Os eventos aparecerão aqui quando você adicionar ou processar episódios.</p>}
+                {!queue?.logs?.length && <p className={styles.empty}>Nenhum evento registrado.</p>}
                 {[...(queue?.logs ?? [])].reverse().slice(0, 80).map((entry, index) => <div className={styles.logEntry} data-level={entry.level} key={`${entry.time}-${index}`}>
                   <time>{new Date(entry.time * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
                   <span>{entry.level === "error" ? "ERRO" : entry.level === "warning" ? "AVISO" : entry.level === "success" ? "OK" : "INFO"}</span>
                   <p>{entry.message}</p>
                 </div>)}
               </div>
-            </section>
+            </section>}
           </section>
 
           <section className={styles.browser}>
