@@ -21,6 +21,7 @@ type Payload = {
 };
 
 const RAIZ = process.cwd();
+const VELOCIDADE_VOZ = 1.12;
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
 const arg = (name: string) => {
   const index = process.argv.indexOf("--" + name);
@@ -64,6 +65,18 @@ function safeMedia(relative: string | null) {
   return relative;
 }
 
+function preparaPersonagens() {
+  const origem = path.join(RAIZ, "acervo");
+  const destino = path.join(RAIZ, "public", "comparacoes", "personagens");
+  const arquivos = ["direita.png", "esquerda.png", "duvida.png"];
+  fs.mkdirSync(destino, { recursive: true });
+  for (const arquivo of arquivos) {
+    const source = path.join(origem, arquivo);
+    if (!fs.existsSync(source)) throw new Error("Personagem não encontrado no acervo: " + arquivo);
+    fs.copyFileSync(source, path.join(destino, arquivo));
+  }
+}
+
 async function main() {
   const id = arg("id");
   if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Identificador de render inválido.");
@@ -72,6 +85,7 @@ async function main() {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY não está configurada.");
 
+  preparaPersonagens();
   const leftMedia = safeMedia(payload.leftMedia);
   const rightMedia = safeMedia(payload.rightMedia);
   const isVideo = (file: string) => /\.(mp4|webm|mov)$/i.test(file);
@@ -104,7 +118,7 @@ async function main() {
     fs.writeFileSync(path.join(audioDir, audioName), audio);
     const parsedDuration = mp3Duration(audio);
     const fallbackDuration = Math.max(2, scene.speech.trim().split(/\s+/).length / 2.5);
-    const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 3);
+    const durationInFrames = Math.max(30, Math.ceil(((parsedDuration || fallbackDuration) / VELOCIDADE_VOZ) * fps) + 5);
     segments.push({
       durationInFrames,
       active: scene.active,
