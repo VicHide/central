@@ -488,8 +488,7 @@ export default function Page() {
                       </section>
                     ))}
                   </div>
-                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("
-")}</pre></details>}
+                  {j.log.length > 0 && <details className="log" open={i === 0 && j.status === "erro"}><summary>Registro</summary><pre>{j.log.join("\n")}</pre></details>}
                 </div>
               ))}
             </div>
