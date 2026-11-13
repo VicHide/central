@@ -51,15 +51,17 @@ const Panel: React.FC<{
       border: "5px solid " + PAPER, borderRadius: 22, background: "#282333",
       boxShadow: "0 8px 0 " + INK,
     }}>
-      {active ? (
+      {active && video ? (
         <OffthreadVideo
           src={staticFile(video)}
           startFrom={videoFrom}
           muted
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
-      ) : (
+      ) : still ? (
         <Img src={staticFile(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: PAPER, fontSize: 22, fontWeight: 800 }}>ADICIONE A IMAGEM</div>
       )}
       <div style={{
         position: "absolute", left: 10, right: 10, bottom: 10, padding: "8px 10px",
@@ -176,8 +178,8 @@ export const comparisonDefaults: ComparisonProps = {
       active: "left",
       speech: "Esse é o Mangekyou Sharingan.",
       expression: "neutral",
-      leftStill: "comparacao/mangekyou-a-pause.jpg",
-      rightStill: "comparacao/mangekyou-b-pause.jpg",
+      leftStill: "",
+      rightStill: "",
       leftVideoFrom: 0,
     },
     {
