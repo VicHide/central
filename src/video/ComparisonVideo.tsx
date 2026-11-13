@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Freeze,
   Img,
   OffthreadVideo,
   Sequence,
@@ -23,6 +24,8 @@ export type ComparisonSegment = {
   rightStill: string;
   leftVideoFrom?: number;
   rightVideoFrom?: number;
+  leftPauseFrame?: number;
+  rightPauseFrame?: number;
 };
 
 export type ComparisonProps = {
@@ -44,20 +47,22 @@ const Panel: React.FC<{
   video: string;
   active: boolean;
   videoFrom: number;
-}> = ({ label, still, video, active, videoFrom }) => {
+  pauseFrame: number;
+}> = ({ label, still, video, active, videoFrom, pauseFrame }) => {
   return (
     <div style={{
       width: "100%", aspectRatio: "1", position: "relative", overflow: "hidden",
       border: "5px solid " + PAPER, borderRadius: 22, background: "#282333",
       boxShadow: "0 8px 0 " + INK,
     }}>
-      {active && video ? (
-        <OffthreadVideo
-          src={staticFile(video)}
-          startFrom={videoFrom}
-          muted
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+      {video ? (
+        active ? (
+          <OffthreadVideo src={staticFile(video)} startFrom={videoFrom} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <Freeze frame={pauseFrame}>
+            <OffthreadVideo src={staticFile(video)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          </Freeze>
+        )
       ) : still ? (
         <Img src={staticFile(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
@@ -94,13 +99,7 @@ const MascotStage: React.FC<{ active: ComparisonSide; expression: ComparisonExpr
           textShadow: "3px 3px 0 " + INK, whiteSpace: "nowrap",
         }}>???</div>
       )}
-      <div style={{
-        width: 104, height: 104, borderRadius: "50%", background: "#51476a",
-        border: "5px dashed " + PAPER, display: "flex", alignItems: "center",
-        justifyContent: "center", color: PAPER, fontSize: 14, fontWeight: 800,
-      }}>PERSONAGEM</div>
-      <div style={{ color: YELLOW, fontSize: 50, fontWeight: 900, lineHeight: 1 }}>{arrow}</div>
-      {expression === "doubt" && <div style={{ color: PAPER, fontSize: 22, fontWeight: 800 }}>DÚVIDA</div>}
+      <div style={{ width: 180, height: 180 }} />
     </div>
   );
 };
@@ -112,7 +111,8 @@ const Scene: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const [leftActive, rightActive] = [segment.active === "left", segment.active === "right"];
-  const leftVideoFrom = segment.leftVideoFrom ?? 0;\n  const rightVideoFrom = segment.rightVideoFrom ?? 0;
+  const leftVideoFrom = segment.leftVideoFrom ?? 0;
+  const rightVideoFrom = segment.rightVideoFrom ?? 0;
   return (
     <AbsoluteFill style={{
       background: "radial-gradient(circle at 50% 38%, #49366f 0%, #211a31 72%)",
@@ -170,8 +170,8 @@ export const comparisonDefaults: ComparisonProps = {
   title: "MANGEKYOU VS. ETERNAL MANGEKYOU",
   leftLabel: "MANGEKYOU",
   rightLabel: "ETERNAL MANGEKYOU",
-  leftVideo: "comparacao/mangekyou-a.mp4",
-  rightVideo: "comparacao/mangekyou-b.mp4",
+  leftVideo: "",
+  rightVideo: "",
   segments: [
     {
       durationInFrames: 150,
@@ -196,6 +196,8 @@ export const comparisonDefaults: ComparisonProps = {
       active: "none",
       speech: "Mas afinal, qual é a diferença?",
       expression: "doubt",
+      leftPauseFrame: 150,
+      rightPauseFrame: 150,
       leftStill: "comparacao/mangekyou-a-pause.jpg",
       rightStill: "comparacao/mangekyou-b-pause.jpg",
     },
