@@ -30,11 +30,44 @@ const RAIZ = process.cwd();
 const execFileAsync = promisify(execFile);
 const VOZ = "pt-BR-AntonioNeural";
 const RATE = "+12%";
+const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
 const arg = (name: string) => {
   const index = process.argv.indexOf("--" + name);
   return index >= 0 ? process.argv[index + 1] : "";
 };
+
+function getSpekoApiKey() {
+  if (process.env.SPEKO_API_KEY) return process.env.SPEKO_API_KEY;
+  const envPath = path.join(RAIZ, ".env.local");
+  if (!fs.existsSync(envPath)) return "";
+  const match = fs.readFileSync(envPath, "utf8").match(/^SPEKO_API_KEY=(.+)$/m);
+  return match ? match[1].trim().replace(/^["']|["']$/g, "") : "";
+}
+
+function wavDuration(buffer: Buffer) {
+  if (buffer.length < 44 || buffer.toString("ascii", 0, 4) !== "RIFF") return 0;
+  const byteRate = buffer.readUInt32LE(28);
+  return byteRate > 0 ? (buffer.length - 44) / byteRate : 0;
+}
+
+function wrapPcmAsWav(pcm: Buffer, sampleRate = 24000) {
+  const wavHeader = Buffer.alloc(44);
+  wavHeader.write("RIFF", 0);
+  wavHeader.writeUInt32LE(36 + pcm.length, 4);
+  wavHeader.write("WAVE", 8);
+  wavHeader.write("fmt ", 12);
+  wavHeader.writeUInt32LE(16, 16);
+  wavHeader.writeUInt16LE(1, 20);
+  wavHeader.writeUInt16LE(1, 22);
+  wavHeader.writeUInt32LE(sampleRate, 24);
+  wavHeader.writeUInt32LE(sampleRate * 2, 28);
+  wavHeader.writeUInt16LE(2, 32);
+  wavHeader.writeUInt16LE(16, 34);
+  wavHeader.write("data", 36);
+  wavHeader.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([wavHeader, pcm]);
+}
 
 function mp3Duration(buffer: Buffer) {
   let offset = 0;
@@ -91,6 +124,55 @@ const EDGE_TTS_SCRIPT = [
   "        json.dump(words, wf, ensure_ascii=False)",
   "asyncio.run(main())",
 ].join("\n");
+
+async function geraAudioSpeko(
+  text: string,
+  audioDir: string,
+  baseName: string,
+  apiKey: string,
+): Promise<{ fileName: string; durationSec: number }> {
+  const res = await fetch(SPEKO_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      text,
+      intent: { language: "pt-BR", optimizeFor: "accuracy" },
+      voice: "leo",
+      model: "tts",
+      workload: "narration",
+      constraints: { allowedProviders: { tts: ["xai"] } },
+    }),
+    signal: AbortSignal.timeout(90_000),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Speko retornou erro ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const headerFmt = res.headers.get("x-speko-audio-format")?.trim().toLowerCase() ?? "";
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const raw = Buffer.from(await res.arrayBuffer());
+  if (raw.length === 0) throw new Error("O Speko retornou um áudio vazio.");
+
+  if (headerFmt === "pcm" || contentType.startsWith("audio/pcm")) {
+    const rateMatch = contentType.match(/rate=(\d+)/i);
+    const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
+    const wav = wrapPcmAsWav(raw, sampleRate);
+    const fileName = `${baseName}.wav`;
+    fs.writeFileSync(path.join(audioDir, fileName), wav);
+    return { fileName, durationSec: wavDuration(wav) };
+  }
+
+  const ext = headerFmt === "wav" || contentType.includes("wav") ? "wav" : "mp3";
+  const fileName = `${baseName}.${ext}`;
+  fs.writeFileSync(path.join(audioDir, fileName), raw);
+  const durationSec = ext === "wav" ? wavDuration(raw) : mp3Duration(raw);
+  return { fileName, durationSec };
+}
 
 async function geraAudio(text: string, destino: string): Promise<WordTiming[] | undefined> {
   const comandos = process.platform === "win32"
@@ -156,14 +238,25 @@ async function main() {
   fs.mkdirSync(audioDir, { recursive: true });
 
   const videoCursor = new Map<string, number>();
+  const spekoKey = getSpekoApiKey();
 
   for (const [index, scene] of payload.scenes.entries()) {
-    evento({ etapa: "Gerando narração", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
-    const audioName = id + "-" + String(index + 1).padStart(2, "0") + ".mp3";
-    const audioPath = path.join(audioDir, audioName);
-    const words = await geraAudio(scene.speech, audioPath);
-    const audio = fs.readFileSync(audioPath);
-    const parsedDuration = mp3Duration(audio);
+    evento({ etapa: spekoKey ? "Gerando narração (Speko · Leo)" : "Gerando narração (Edge TTS)", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
+    const baseName = id + "-" + String(index + 1).padStart(2, "0");
+    let audioFileName = `${baseName}.mp3`;
+    let words: WordTiming[] | undefined;
+    let parsedDuration = 0;
+
+    if (spekoKey) {
+      const res = await geraAudioSpeko(scene.speech, audioDir, baseName, spekoKey);
+      audioFileName = res.fileName;
+      parsedDuration = res.durationSec;
+    } else {
+      const audioPath = path.join(audioDir, audioFileName);
+      words = await geraAudio(scene.speech, audioPath);
+      parsedDuration = mp3Duration(fs.readFileSync(audioPath));
+    }
+
     const fallbackDuration = Math.max(2, scene.speech.trim().split(/\s+/).length / 2.5);
     const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 4);
 
@@ -200,7 +293,7 @@ async function main() {
       rightVideoFrom: rightCursor,
       leftPauseFrame: leftCursor,
       rightPauseFrame: rightCursor,
-      audio: "comparacoes/audio/" + audioName,
+      audio: "comparacoes/audio/" + audioFileName,
     });
   }
 

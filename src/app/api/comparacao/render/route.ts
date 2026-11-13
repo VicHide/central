@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     render: true,
     duracaoSeg: estimatedSeconds,
     resumo: title,
-    preparo: "Edge TTS · Antonio · narração por cena",
+    preparo: process.env.SPEKO_API_KEY ? "Speko · Leo (xAI) · narração por cena" : "Edge TTS · Antonio · narração por cena",
   });
   return Response.json({ jobId: job.id, message: "Narração iniciada. O vídeo será renderizado automaticamente ao terminar." });
 }

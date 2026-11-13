@@ -323,7 +323,7 @@ export default function Page() {
       setCompMsg("Gere o roteiro antes de renderizar.");
       return;
     }
-    if (!window.confirm("Gerar a narração com Edge TTS (Antonio) e renderizar o vídeo? A voz é gratuita e não consome créditos de API.")) return;
+    if (!window.confirm("Gerar a narração (Speko · Leo / Edge TTS) e renderizar o vídeo?")) return;
     setCompRenderLoading(true);
     setCompMsg("");
     try {
@@ -508,7 +508,7 @@ export default function Page() {
                     </label>
                   </div>)}
                   <div className="comparison-render">
-                    <p className="helper"><strong>Voz selecionada:</strong> Antonio · Português (Brasil) · Edge TTS. Narração gratuita, sem chave de API ou créditos.</p>
+                    <p className="helper"><strong>Voz selecionada:</strong> Leo · Português (Brasil) · Speko (xAI), com fallback automático para Edge TTS se `SPEKO_API_KEY` não estiver configurada.</p>
                     <div className="actions">
                       <button type="button" className="primary" onClick={renderizarComparacao} disabled={compRenderLoading || rodando}>
                         {compRenderLoading ? "Iniciando…" : rodando ? "Outra tarefa está em andamento" : "Gerar voz e renderizar vídeo"}
