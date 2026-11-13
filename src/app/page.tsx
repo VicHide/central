@@ -278,7 +278,7 @@ export default function Page() {
         <a className="brand" href="#novo"><span className="mark" aria-hidden="true">Q</span><span><strong>Central do Canal</strong><small>Estúdio de quiz</small></span></a>
         <nav>
           <a className="nav-link active" href="#novo">Novo vídeo</a>
-          <a className="nav-link" href="#comparacao">Comparação</a>
+          <a className="nav-link" href="#comparacao" onClick={() => setModo("comparacao")}>Comparação</a>
           <a className="nav-link" href="#top">Top 10 (Short)</a>
           <a className="nav-link" href="#projetos">Produção</a>
           <a className="nav-link" href="#acervo">Acervo</a>
@@ -340,6 +340,7 @@ export default function Page() {
                   {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
                   {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
                 </>}
+              </div>
             </section>
           </div>
 
