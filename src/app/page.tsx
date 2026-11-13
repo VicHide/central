@@ -356,6 +356,7 @@ export default function Page() {
           <a className="nav-link" href="#projetos">Produção</a>
           <a className="nav-link" href="#acervo">Acervo</a>
           <a className="nav-link" href="#musicas">Músicas</a>
+          <a className="nav-link" href="/voz">Teste de voz · Leo</a>
           <a className="nav-link" href="#thumbnail">Thumbnails</a>
           <a className="nav-link" href="#saidas">Saídas</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
