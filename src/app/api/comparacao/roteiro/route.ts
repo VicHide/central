@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 type Side = "left" | "right" | "none";
 type Expression = "neutral" | "doubt" | "surprise";
 
-function mediaContent(relative: unknown, label: string) {
+function mediaContent(relative: unknown) {
   if (typeof relative !== "string" || !/^comparacoes\/[a-f0-9-]+\.(jpg|png|webp)$/i.test(relative)) return null;
   const root = path.resolve(process.cwd(), "public", "comparacoes");
   const file = path.resolve(process.cwd(), "public", relative);
@@ -15,7 +15,7 @@ function mediaContent(relative: unknown, label: string) {
   const mime = ext === ".jpg" ? "image/jpeg" : ext === ".png" ? "image/png" : "image/webp";
   const data = fs.readFileSync(file);
   if (data.length > 8 * 1024 * 1024) return null;
-  return { type: "input_image", image_url: `data:${mime};base64,${data.toString("base64")}`, detail: "low" };
+  return { type: "input_image", image_url: `data:${mime};base64,${data.toString("base64")}`, detail: "high" };
 }
 
 export async function POST(req: Request) {
@@ -33,8 +33,13 @@ export async function POST(req: Request) {
   if (!title || !leftLabel || !rightLabel) {
     return Response.json({ erro: "Informe o tema e os nomes dos dois quadros." }, { status: 400 });
   }
-  if (!leftContext && !rightContext && !body.leftMedia && !body.rightMedia) {
-    return Response.json({ erro: "Adicione imagens ou uma descrição para dar contexto ao roteiro." }, { status: 400 });
+  const leftImage = mediaContent(body.leftMedia);
+  const rightImage = mediaContent(body.rightMedia);
+  if (!leftContext && !rightContext && !leftImage && !rightImage) {
+    return Response.json({ erro: "Adicione imagens ou descreva os dois quadros para dar contexto ao roteiro." }, { status: 400 });
+  }
+  if (body.leftMedia && !leftImage && !leftContext || body.rightMedia && !rightImage && !rightContext) {
+    return Response.json({ erro: "Para analisar vídeos, preencha o contexto adicional de cada quadro. A análise visual automática está disponível para imagens." }, { status: 400 });
   }
 
   const userContent: Array<Record<string, unknown>> = [{
@@ -54,8 +59,6 @@ export async function POST(req: Request) {
       "A última cena deve usar expression='doubt'.",
     ].join("\n"),
   }];
-  const leftImage = mediaContent(body.leftMedia, "esquerdo");
-  const rightImage = mediaContent(body.rightMedia, "direito");
   if (leftImage) userContent.push({ ...leftImage, type: "input_image" });
   if (rightImage) userContent.push({ ...rightImage, type: "input_image" });
 
