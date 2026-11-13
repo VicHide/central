@@ -39,9 +39,29 @@ export type ComparisonProps = {
   segments: ComparisonSegment[];
 };
 
-const INK = "#171321";
-const PAPER = "#fff8e7";
-const YELLOW = "#ffd43b";
+const INK = "#171717";
+const MUTED = "#666";
+const ACCENT = "#f3c928";
+const CAPTION_SPEED = 1.12;
+
+function frasesDaLegenda(text: string) {
+  return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [text])
+    .map((phrase) => phrase.trim())
+    .filter(Boolean);
+}
+
+function legendaNaFrame(text: string, frame: number, duration: number) {
+  const phrases = frasesDaLegenda(text);
+  if (phrases.length <= 1) return phrases[0] ?? text;
+  const weights = phrases.map((phrase) => Math.max(1, phrase.split(/\s+/).length));
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let cursor = 0;
+  for (let index = 0; index < phrases.length; index++) {
+    cursor += (weights[index] / total) * duration;
+    if (frame < cursor || index === phrases.length - 1) return phrases[index];
+  }
+  return phrases[phrases.length - 1];
+}
 
 const Panel: React.FC<{
   label: string;
@@ -50,58 +70,68 @@ const Panel: React.FC<{
   active: boolean;
   videoFrom: number;
   pauseFrame: number;
-}> = ({ label, still, video, active, videoFrom, pauseFrame }) => {
-  return (
-    <div style={{
-      width: "100%", aspectRatio: "1", position: "relative", overflow: "hidden",
-      border: "5px solid " + PAPER, borderRadius: 22, background: "#282333",
-      boxShadow: "0 8px 0 " + INK,
-    }}>
-      {video ? (
-        active ? (
-          <OffthreadVideo src={staticFile(video)} startFrom={videoFrom} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <Freeze frame={pauseFrame}>
-            <OffthreadVideo src={staticFile(video)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </Freeze>
-        )
-      ) : still ? (
-        <Img src={staticFile(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+}> = ({ label, still, video, active, videoFrom, pauseFrame }) => (
+  <div style={{
+    width: "100%", aspectRatio: "1", position: "relative", overflow: "hidden",
+    border: "4px solid #202020", borderRadius: 18, background: "#f0f0f0",
+    boxShadow: "0 5px 0 #202020",
+  }}>
+    {video ? (
+      active ? (
+        <OffthreadVideo src={staticFile(video)} startFrom={videoFrom} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
-        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: PAPER, fontSize: 22, fontWeight: 800 }}>ADICIONE A IMAGEM</div>
-      )}
-      <div style={{
-        position: "absolute", left: 10, right: 10, bottom: 10, padding: "8px 10px",
-        borderRadius: 10, background: "rgba(15,12,22,.82)", color: PAPER,
-        textAlign: "center", fontSize: 25, fontWeight: 800, letterSpacing: .5,
-      }}>{label}</div>
-      {!active && <div style={{
-        position: "absolute", top: 10, right: 10, padding: "5px 9px",
-        borderRadius: 8, color: PAPER, background: "rgba(15,12,22,.78)",
-        fontSize: 15, fontWeight: 800,
-      }}>PAUSADO</div>}
-    </div>
-  );
-};
+        <Freeze frame={pauseFrame}>
+          <OffthreadVideo src={staticFile(video)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </Freeze>
+      )
+    ) : still ? (
+      <Img src={staticFile(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    ) : (
+      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 22, fontWeight: 800 }}>ADICIONE A IMAGEM</div>
+    )}
+    <div style={{
+      position: "absolute", left: 10, right: 10, bottom: 10, padding: "8px 10px",
+      borderRadius: 10, background: "rgba(20,20,20,.88)", color: "#fff",
+      textAlign: "center", fontSize: 25, fontWeight: 800, letterSpacing: .3,
+    }}>{label}</div>
+    {!active && <div style={{
+      position: "absolute", top: 10, right: 10, padding: "5px 9px",
+      borderRadius: 8, color: "#fff", background: "rgba(20,20,20,.78)",
+      fontSize: 15, fontWeight: 800,
+    }}>PAUSADO</div>}
+  </div>
+);
 
-const MascotStage: React.FC<{ active: ComparisonSide; expression: ComparisonExpression; frame: number }> = ({ active, expression, frame }) => {
+const MascotStage: React.FC<{
+  active: ComparisonSide;
+  expression: ComparisonExpression;
+  frame: number;
+}> = ({ active, expression, frame }) => {
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 12, stiffness: 150 } });
-  // Reserved transparent stage for the original mascot asset, to be integrated later.
+  const mascot = expression === "doubt"
+    ? "comparacoes/personagens/duvida.png"
+    : active === "left"
+      ? "comparacoes/personagens/esquerda.png"
+      : active === "right"
+        ? "comparacoes/personagens/direita.png"
+        : "comparacoes/personagens/duvida.png";
+
   return (
     <div style={{
-      width: 180, minHeight: 220, display: "flex", flexDirection: "column",
-      justifyContent: "center", alignItems: "center", position: "relative",
+      width: 300, height: 300, display: "flex", justifyContent: "center",
+      alignItems: "center", position: "relative",
       transform: "scale(" + interpolate(pop, [0, 1], [.92, 1]) + ")",
     }}>
+      <Img src={staticFile(mascot)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
       {expression === "doubt" && (
         <div style={{
-          position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)",
-          color: YELLOW, fontSize: 48, fontWeight: 1000, letterSpacing: 2,
-          textShadow: "3px 3px 0 " + INK, whiteSpace: "nowrap",
+          position: "absolute", top: -20, right: -30, color: ACCENT,
+          fontSize: 58, fontWeight: 1000, letterSpacing: 2,
+          WebkitTextStroke: "2px #171717",
+          textShadow: "3px 3px 0 #171717", whiteSpace: "nowrap",
         }}>???</div>
       )}
-      <div style={{ width: 180, height: 180 }} />
     </div>
   );
 };
@@ -111,40 +141,43 @@ const Scene: React.FC<{
   segment: ComparisonSegment;
 }> = ({ props, segment }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
   const [leftActive, rightActive] = [segment.active === "left", segment.active === "right"];
   const leftVideoFrom = segment.leftVideoFrom ?? 0;
   const rightVideoFrom = segment.rightVideoFrom ?? 0;
+  const caption = legendaNaFrame(segment.speech, frame, segment.durationInFrames);
+
   return (
     <AbsoluteFill style={{
-      background: "radial-gradient(circle at 50% 38%, #49366f 0%, #211a31 72%)",
-      color: PAPER, fontFamily: "Arial, sans-serif",
+      background: "#ffffff",
+      color: INK,
+      fontFamily: "Arial, sans-serif",
     }}>
       <div style={{
-        position: "absolute", top: 90, left: 50, right: 50, textAlign: "center",
-        fontSize: 44, fontWeight: 900, letterSpacing: 1,
+        position: "absolute", top: 82, left: 50, right: 50, textAlign: "center",
+        fontSize: 44, fontWeight: 900, letterSpacing: .3, color: INK,
       }}>{props.title}</div>
       <div style={{
-        position: "absolute", top: 330, left: 34, right: 34,
+        position: "absolute", top: 290, left: 34, right: 34,
         display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22,
       }}>
         <Panel label={props.leftLabel} still={segment.leftStill} video={props.leftVideo} active={leftActive} videoFrom={leftVideoFrom} pauseFrame={segment.leftPauseFrame ?? 0} />
         <Panel label={props.rightLabel} still={segment.rightStill} video={props.rightVideo} active={rightActive} videoFrom={rightVideoFrom} pauseFrame={segment.rightPauseFrame ?? 0} />
       </div>
       <div style={{
-        position: "absolute", top: 790, left: 0, right: 0,
+        position: "absolute", top: 820, left: 0, right: 0,
         display: "flex", justifyContent: "center",
       }}>
         <MascotStage active={segment.active} expression={segment.expression ?? "neutral"} frame={frame} />
       </div>
-      {segment.audio && <Audio src={staticFile(segment.audio)} />}
+      {segment.audio && <Audio src={staticFile(segment.audio)} playbackRate={CAPTION_SPEED} />}
       <div style={{
-        position: "absolute", left: 55, right: 55, bottom: 180,
-        padding: "24px 28px", borderRadius: 20,
-        background: "rgba(13,10,20,.88)", border: "3px solid " + PAPER,
-        color: PAPER, fontSize: 37, fontWeight: 800, lineHeight: 1.2,
-        textAlign: "center",
-      }}>{segment.speech}</div>
+        position: "absolute", left: 70, right: 70, bottom: 115,
+        minHeight: 104, padding: "20px 28px", borderRadius: 16,
+        background: "#ffffff", border: "3px solid #202020",
+        color: INK, fontSize: 39, fontWeight: 850, lineHeight: 1.18,
+        textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: "0 5px 0 #202020",
+      }}>{caption}</div>
     </AbsoluteFill>
   );
 };
