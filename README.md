@@ -53,6 +53,19 @@ porcentagem e tempo restante, que o painel mostra numa barra de progresso (e no 
 Etapas: preparando imagens → empacotando o projeto → renderizando o vídeo → concluído.
 Na primeira renderização o Remotion baixa o navegador interno (pode demorar).
 
+## Roteiro por IA para vídeos de comparação
+
+O painel tem o formato **Comparação** em Novo vídeo. Ao selecioná-lo, envie uma imagem ou vídeo para cada quadro, informe os nomes e o contexto e use **Gerar roteiro com IA**. A geração cria cinco cenas editáveis em português brasileiro.
+
+Para ativar a geração:
+1. Copie `.env.example` para `.env.local`.
+2. Crie uma chave de API na plataforma da OpenAI e coloque-a em `OPENAI_API_KEY`.
+3. Reinicie o painel com `npm run painel`.
+
+A chave fica no servidor e não deve ser colocada no código do navegador nem enviada ao Git. O uso da API é cobrado separadamente da assinatura do ChatGPT. O modelo padrão é `gpt-6-luna`; você pode alterar `OPENAI_TEXT_MODEL` no `.env.local`.
+
+Imagens podem ser analisadas visualmente. Para vídeos, preencha o contexto adicional de cada quadro; nesta primeira etapa, o vídeo enviado ainda não é analisado pela IA. A geração de voz e a renderização integrada ao painel serão conectadas na etapa seguinte.
+
 ## Top 10 para Shorts (AniList)
     npm run top -- --genero acao --ordem score --n 10            # melhores notas de ação
     npm run top -- --temporada FALL --ano 2026 --ordem popularidade
