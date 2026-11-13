@@ -12,9 +12,21 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { loadFont } from "@remotion/google-fonts/Montserrat";
+
+const { fontFamily: MONTSERRAT } = loadFont("normal", {
+  weights: ["800", "900"],
+  subsets: ["latin"],
+});
 
 export type ComparisonSide = "left" | "right" | "none";
 export type ComparisonExpression = "neutral" | "doubt" | "surprise";
+
+export type WordTiming = {
+  text: string;
+  startMs: number;
+  endMs: number;
+};
 
 export type ComparisonSegment = {
   durationInFrames: number;
@@ -22,8 +34,13 @@ export type ComparisonSegment = {
   speech: string;
   expression?: ComparisonExpression;
   audio?: string;
+  words?: WordTiming[];
+  leftLabel?: string;
+  rightLabel?: string;
   leftStill: string;
   rightStill: string;
+  leftVideo?: string;
+  rightVideo?: string;
   leftVideoFrom?: number;
   rightVideoFrom?: number;
   leftPauseFrame?: number;
@@ -39,28 +56,67 @@ export type ComparisonProps = {
   segments: ComparisonSegment[];
 };
 
-const INK = "#171717";
-const MUTED = "#666";
-const ACCENT = "#f3c928";
-const CAPTION_SPEED = 1.12;
+const HIGHLIGHT = "#ffe600";
+const STROKE_STYLE: React.CSSProperties = {
+  paintOrder: "stroke fill",
+  WebkitTextStroke: "10px #000000",
+  textShadow: "0 4px 8px rgba(0, 0, 0, 0.35)",
+};
 
-function frasesDaLegenda(text: string) {
-  return (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [text])
-    .map((phrase) => phrase.trim())
-    .filter(Boolean);
+type TimedWord = {
+  text: string;
+  startFrame: number;
+  endFrame: number;
+};
+
+function buildTimedWords(
+  speech: string,
+  durationInFrames: number,
+  fps: number,
+  rawWords?: WordTiming[],
+): TimedWord[] {
+  if (rawWords && rawWords.length > 0) {
+    return rawWords.map((w) => ({
+      text: w.text,
+      startFrame: Math.max(0, Math.round((w.startMs / 1000) * fps)),
+      endFrame: Math.max(1, Math.round((w.endMs / 1000) * fps)),
+    }));
+  }
+
+  const tokens = speech.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return [];
+  const activeFrames = Math.max(1, durationInFrames - 4);
+  const weights = tokens.map((t) => Math.max(2, t.replace(/[^\p{L}\p{N}]/gu, "").length));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  let cursor = 0;
+  return tokens.map((text, index) => {
+    const span = (weights[index] / totalWeight) * activeFrames;
+    const startFrame = Math.floor(cursor);
+    cursor += span;
+    const endFrame = index === tokens.length - 1 ? durationInFrames : Math.max(startFrame + 1, Math.floor(cursor));
+    return { text, startFrame, endFrame };
+  });
 }
 
-function legendaNaFrame(text: string, frame: number, duration: number) {
-  const phrases = frasesDaLegenda(text);
-  if (phrases.length <= 1) return phrases[0] ?? text;
-  const weights = phrases.map((phrase) => Math.max(1, phrase.split(/\s+/).length));
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  let cursor = 0;
-  for (let index = 0; index < phrases.length; index++) {
-    cursor += (weights[index] / total) * duration;
-    if (frame < cursor || index === phrases.length - 1) return phrases[index];
+function groupWordsIntoChunks(words: TimedWord[], maxWords = 3, maxChars = 22): TimedWord[][] {
+  const chunks: TimedWord[][] = [];
+  let current: TimedWord[] = [];
+  let currentChars = 0;
+
+  for (const word of words) {
+    const nextChars = currentChars + (current.length > 0 ? 1 : 0) + word.text.length;
+    const endsSentence = current.length > 0 && /[.!?]$/.test(current[current.length - 1].text);
+    if (current.length >= maxWords || (current.length > 0 && nextChars > maxChars) || endsSentence) {
+      chunks.push(current);
+      current = [word];
+      currentChars = word.text.length;
+    } else {
+      current.push(word);
+      currentChars = nextChars;
+    }
   }
-  return phrases[phrases.length - 1];
+  if (current.length > 0) chunks.push(current);
+  return chunks;
 }
 
 const Panel: React.FC<{
@@ -71,34 +127,71 @@ const Panel: React.FC<{
   videoFrom: number;
   pauseFrame: number;
 }> = ({ label, still, video, active, videoFrom, pauseFrame }) => (
-  <div style={{
-    width: "100%", aspectRatio: "1", position: "relative", overflow: "hidden",
-    border: "4px solid #202020", borderRadius: 18, background: "#f0f0f0",
-    boxShadow: "0 5px 0 #202020",
-  }}>
+  <div
+    style={{
+      width: "100%",
+      aspectRatio: "1",
+      position: "relative",
+      overflow: "hidden",
+      background: "#f2f2f2",
+    }}
+  >
     {video ? (
       active ? (
-        <OffthreadVideo src={staticFile(video)} startFrom={videoFrom} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        <OffthreadVideo
+          src={staticFile(video)}
+          startFrom={videoFrom}
+          muted
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
       ) : (
         <Freeze frame={pauseFrame}>
-          <OffthreadVideo src={staticFile(video)} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <OffthreadVideo
+            src={staticFile(video)}
+            muted
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         </Freeze>
       )
     ) : still ? (
       <Img src={staticFile(still)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
     ) : (
-      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 22, fontWeight: 800 }}>ADICIONE A IMAGEM</div>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#888",
+          fontSize: 24,
+          fontWeight: 800,
+        }}
+      >
+        SEM MÍDIA
+      </div>
     )}
-    <div style={{
-      position: "absolute", left: 10, right: 10, bottom: 10, padding: "8px 10px",
-      borderRadius: 10, background: "rgba(20,20,20,.88)", color: "#fff",
-      textAlign: "center", fontSize: 25, fontWeight: 800, letterSpacing: .3,
-    }}>{label}</div>
-    {!active && <div style={{
-      position: "absolute", top: 10, right: 10, padding: "5px 9px",
-      borderRadius: 8, color: "#fff", background: "rgba(20,20,20,.78)",
-      fontSize: 15, fontWeight: 800,
-    }}>PAUSADO</div>}
+    {label && (
+      <div
+        style={{
+          position: "absolute",
+          left: 12,
+          right: 12,
+          bottom: 16,
+          textAlign: "center",
+          color: "#ffffff",
+          fontSize: 40,
+          fontWeight: 900,
+          lineHeight: 1.08,
+          letterSpacing: 0.2,
+          paintOrder: "stroke fill",
+          WebkitTextStroke: "8px #000000",
+          textShadow: "0 3px 6px rgba(0, 0, 0, 0.45)",
+        }}
+      >
+        {label}
+      </div>
+    )}
   </div>
 );
 
@@ -108,30 +201,100 @@ const MascotStage: React.FC<{
   frame: number;
 }> = ({ active, expression, frame }) => {
   const { fps } = useVideoConfig();
-  const pop = spring({ frame, fps, config: { damping: 12, stiffness: 150 } });
-  const mascot = expression === "doubt"
-    ? "comparacoes/personagens/duvida.png"
-    : active === "left"
-      ? "comparacoes/personagens/esquerda.png"
-      : active === "right"
-        ? "comparacoes/personagens/direita.png"
-        : "comparacoes/personagens/duvida.png";
+  const pop = spring({ frame, fps, config: { damping: 14, stiffness: 160 } });
+  const mascot =
+    expression === "doubt" || active === "none"
+      ? "comparacoes/personagens/duvida.png"
+      : active === "left"
+        ? "comparacoes/personagens/esquerda.png"
+        : "comparacoes/personagens/direita.png";
 
   return (
-    <div style={{
-      width: 300, height: 300, display: "flex", justifyContent: "center",
-      alignItems: "center", position: "relative",
-      transform: "scale(" + interpolate(pop, [0, 1], [.92, 1]) + ")",
-    }}>
-      <Img src={staticFile(mascot)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-      {expression === "doubt" && (
-        <div style={{
-          position: "absolute", top: -20, right: -30, color: ACCENT,
-          fontSize: 58, fontWeight: 1000, letterSpacing: 2,
-          WebkitTextStroke: "2px #171717",
-          textShadow: "3px 3px 0 #171717", whiteSpace: "nowrap",
-        }}>???</div>
-      )}
+    <div
+      style={{
+        width: 780,
+        height: 920,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        transform: `scale(${interpolate(pop, [0, 1], [0.96, 1])})`,
+      }}
+    >
+      <Img
+        src={staticFile(mascot)}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          mixBlendMode: "multiply",
+        }}
+      />
+    </div>
+  );
+};
+
+const CaptionLine: React.FC<{
+  speech: string;
+  durationInFrames: number;
+  words?: WordTiming[];
+}> = ({ speech, durationInFrames, words }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const timedWords = React.useMemo(
+    () => buildTimedWords(speech, durationInFrames, fps, words),
+    [speech, durationInFrames, fps, words],
+  );
+  const chunks = React.useMemo(() => groupWordsIntoChunks(timedWords), [timedWords]);
+
+  if (chunks.length === 0) return null;
+
+  let activeChunk = chunks[chunks.length - 1];
+  for (const chunk of chunks) {
+    const chunkStart = chunk[0].startFrame;
+    const chunkEnd = chunk[chunk.length - 1].endFrame;
+    if (frame >= chunkStart && frame < chunkEnd) {
+      activeChunk = chunk;
+      break;
+    }
+    if (frame < chunkStart) {
+      activeChunk = chunk;
+      break;
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 790,
+        left: 44,
+        right: 44,
+        minHeight: 88,
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "8px 14px",
+        textAlign: "center",
+      }}
+    >
+      {activeChunk.map((word, index) => {
+        const isSpoken = frame >= word.startFrame && frame < word.endFrame;
+        return (
+          <span
+            key={`${word.text}-${index}`}
+            style={{
+              fontSize: 54,
+              fontWeight: 900,
+              lineHeight: 1.12,
+              color: isSpoken ? HIGHLIGHT : "#ffffff",
+              ...STROKE_STYLE,
+            }}
+          >
+            {word.text}
+          </span>
+        );
+      })}
     </div>
   );
 };
@@ -141,43 +304,76 @@ const Scene: React.FC<{
   segment: ComparisonSegment;
 }> = ({ props, segment }) => {
   const frame = useCurrentFrame();
-  const [leftActive, rightActive] = [segment.active === "left", segment.active === "right"];
-  const leftVideoFrom = segment.leftVideoFrom ?? 0;
-  const rightVideoFrom = segment.rightVideoFrom ?? 0;
-  const caption = legendaNaFrame(segment.speech, frame, segment.durationInFrames);
+  const leftActive = segment.active === "left";
+  const rightActive = segment.active === "right";
+  const leftLabel = segment.leftLabel ?? props.leftLabel;
+  const rightLabel = segment.rightLabel ?? props.rightLabel;
+  const leftVideo = segment.leftVideo ?? props.leftVideo;
+  const rightVideo = segment.rightVideo ?? props.rightVideo;
 
   return (
-    <AbsoluteFill style={{
-      background: "#ffffff",
-      color: INK,
-      fontFamily: "Arial, sans-serif",
-    }}>
-      <div style={{
-        position: "absolute", top: 82, left: 50, right: 50, textAlign: "center",
-        fontSize: 44, fontWeight: 900, letterSpacing: .3, color: INK,
-      }}>{props.title}</div>
-      <div style={{
-        position: "absolute", top: 290, left: 34, right: 34,
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22,
-      }}>
-        <Panel label={props.leftLabel} still={segment.leftStill} video={props.leftVideo} active={leftActive} videoFrom={leftVideoFrom} pauseFrame={segment.leftPauseFrame ?? 0} />
-        <Panel label={props.rightLabel} still={segment.rightStill} video={props.rightVideo} active={rightActive} videoFrom={rightVideoFrom} pauseFrame={segment.rightPauseFrame ?? 0} />
+    <AbsoluteFill
+      style={{
+        background: "#ffffff",
+        fontFamily: MONTSERRAT,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 220,
+          left: 0,
+          right: 0,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 6,
+          background: "#ffffff",
+        }}
+      >
+        <Panel
+          label={leftLabel}
+          still={segment.leftStill}
+          video={leftVideo}
+          active={leftActive}
+          videoFrom={segment.leftVideoFrom ?? 0}
+          pauseFrame={segment.leftPauseFrame ?? 0}
+        />
+        <Panel
+          label={rightLabel}
+          still={segment.rightStill}
+          video={rightVideo}
+          active={rightActive}
+          videoFrom={segment.rightVideoFrom ?? 0}
+          pauseFrame={segment.rightPauseFrame ?? 0}
+        />
       </div>
-      <div style={{
-        position: "absolute", top: 820, left: 0, right: 0,
-        display: "flex", justifyContent: "center",
-      }}>
-        <MascotStage active={segment.active} expression={segment.expression ?? "neutral"} frame={frame} />
+
+      <CaptionLine
+        speech={segment.speech}
+        durationInFrames={segment.durationInFrames}
+        words={segment.words}
+      />
+
+      <div
+        style={{
+          position: "absolute",
+          top: 905,
+          bottom: 35,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+        }}
+      >
+        <MascotStage
+          active={segment.active}
+          expression={segment.expression ?? "neutral"}
+          frame={frame}
+        />
       </div>
-      {segment.audio && <Audio src={staticFile(segment.audio)} playbackRate={CAPTION_SPEED} />}
-      <div style={{
-        position: "absolute", left: 70, right: 70, bottom: 115,
-        minHeight: 104, padding: "20px 28px", borderRadius: 16,
-        background: "#ffffff", border: "3px solid #202020",
-        color: INK, fontSize: 39, fontWeight: 850, lineHeight: 1.18,
-        textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: "0 5px 0 #202020",
-      }}>{caption}</div>
+
+      {segment.audio && <Audio src={staticFile(segment.audio)} />}
     </AbsoluteFill>
   );
 };
@@ -204,15 +400,15 @@ export const comparisonDuration = (props: ComparisonProps) =>
 
 export const comparisonDefaults: ComparisonProps = {
   title: "MANGEKYOU VS. ETERNAL MANGEKYOU",
-  leftLabel: "MANGEKYOU",
-  rightLabel: "ETERNAL MANGEKYOU",
+  leftLabel: "Mangekyo",
+  rightLabel: "Eternal Mangekyo",
   leftVideo: "",
   rightVideo: "",
   segments: [
     {
-      durationInFrames: 150,
+      durationInFrames: 120,
       active: "left",
-      speech: "Esse é o Mangekyou Sharingan.",
+      speech: "Esse aqui é o Mangekyou Sharingan.",
       expression: "neutral",
       leftStill: "",
       rightStill: "",
@@ -220,22 +416,22 @@ export const comparisonDefaults: ComparisonProps = {
       rightPauseFrame: 0,
     },
     {
-      durationInFrames: 150,
+      durationInFrames: 120,
       active: "right",
       speech: "E esse é o Eternal Mangekyou Sharingan.",
       expression: "neutral",
       leftStill: "",
       rightStill: "",
       rightVideoFrom: 0,
-      leftPauseFrame: 150,
+      leftPauseFrame: 120,
     },
     {
       durationInFrames: 105,
       active: "none",
       speech: "Mas afinal, qual é a diferença?",
       expression: "doubt",
-      leftPauseFrame: 150,
-      rightPauseFrame: 150,
+      leftPauseFrame: 120,
+      rightPauseFrame: 120,
       leftStill: "",
       rightStill: "",
     },

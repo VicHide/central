@@ -3,14 +3,19 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { renderVideo } from "./render";
-import type { ComparisonProps, ComparisonSegment } from "../video/ComparisonVideo";
+import type { ComparisonProps, ComparisonSegment, WordTiming } from "../video/ComparisonVideo";
 
 type SceneInput = {
   label: string;
   active: "left" | "right" | "none";
   speech: string;
   expression: "neutral" | "doubt" | "surprise";
+  leftLabel?: string;
+  rightLabel?: string;
+  leftMedia?: string | null;
+  rightMedia?: string | null;
 };
+
 type Payload = {
   id: string;
   title: string;
@@ -59,7 +64,7 @@ function mp3Duration(buffer: Buffer) {
   return seconds;
 }
 
-function safeMedia(relative: string | null) {
+function safeMedia(relative: string | null | undefined) {
   if (!relative) return "";
   if (!/^comparacoes\/[a-f0-9-]+\.(jpg|png|webp|mp4|webm|mov)$/i.test(relative)) throw new Error("Arquivo de mídia inválido.");
   const file = path.resolve(RAIZ, "public", relative);
@@ -68,22 +73,46 @@ function safeMedia(relative: string | null) {
   return relative;
 }
 
-async function geraAudio(text: string, destino: string) {
+const EDGE_TTS_SCRIPT = [
+  "import asyncio, json, sys, edge_tts",
+  "async def main():",
+  "    text, voice, rate, audio_path, words_path = sys.argv[1:6]",
+  "    comm = edge_tts.Communicate(text, voice, rate=rate)",
+  "    words = []",
+  "    with open(audio_path, 'wb') as f:",
+  "        async for chunk in comm.stream():",
+  "            if chunk['type'] == 'audio':",
+  "                f.write(chunk['data'])",
+  "            elif chunk['type'] == 'WordBoundary':",
+  "                start_ms = round(chunk['offset'] / 10000)",
+  "                end_ms = round((chunk['offset'] + chunk['duration']) / 10000)",
+  "                words.append({'text': chunk['text'], 'startMs': start_ms, 'endMs': end_ms})",
+  "    with open(words_path, 'w', encoding='utf-8') as wf:",
+  "        json.dump(words, wf, ensure_ascii=False)",
+  "asyncio.run(main())",
+].join("\n");
+
+async function geraAudio(text: string, destino: string): Promise<WordTiming[] | undefined> {
   const comandos = process.platform === "win32"
     ? [{ bin: "py", prefix: ["-3"] }, { bin: "python", prefix: [] }]
     : [{ bin: "python3", prefix: [] }, { bin: "python", prefix: [] }];
+  const wordsPath = destino.replace(/\.mp3$/i, ".words.json");
   let ultimoErro: unknown;
+
   for (const comando of comandos) {
     try {
       await execFileAsync(comando.bin, [
         ...comando.prefix,
-        "-m", "edge_tts",
-        "--voice", VOZ,
-        "--rate", RATE,
-        "--text", text,
-        "--write-media", destino,
+        "-c", EDGE_TTS_SCRIPT,
+        text, VOZ, RATE, destino, wordsPath,
       ], { windowsHide: true, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
-      if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
+      if (fs.existsSync(destino) && fs.statSync(destino).size > 0) {
+        if (fs.existsSync(wordsPath)) {
+          const parsed = JSON.parse(fs.readFileSync(wordsPath, "utf8")) as WordTiming[];
+          return Array.isArray(parsed) && parsed.length > 0 ? parsed : undefined;
+        }
+        return undefined;
+      }
       throw new Error("O Edge TTS não gerou o arquivo de áudio.");
     } catch (error) {
       ultimoErro = error;
@@ -115,38 +144,62 @@ async function main() {
   const payloadPath = path.join(RAIZ, "data", "comparacoes", id + ".json");
   const payload = JSON.parse(fs.readFileSync(payloadPath, "utf8")) as Payload;
   preparaPersonagens();
-  const leftMedia = safeMedia(payload.leftMedia);
-  const rightMedia = safeMedia(payload.rightMedia);
+
+  const defaultLeftMedia = safeMedia(payload.leftMedia);
+  const defaultRightMedia = safeMedia(payload.rightMedia);
   const isVideo = (file: string) => /\.(mp4|webm|mov)$/i.test(file);
-  const leftVideo = isVideo(leftMedia) ? leftMedia : "";
-  const rightVideo = isVideo(rightMedia) ? rightMedia : "";
-  const leftStill = leftMedia && !leftVideo ? leftMedia : "";
-  const rightStill = rightMedia && !rightVideo ? rightMedia : "";
+  const leftVideo = isVideo(defaultLeftMedia) ? defaultLeftMedia : "";
+  const rightVideo = isVideo(defaultRightMedia) ? defaultRightMedia : "";
   const fps = 30;
   const segments: ComparisonSegment[] = [];
   const audioDir = path.join(RAIZ, "public", "comparacoes", "audio");
   fs.mkdirSync(audioDir, { recursive: true });
 
+  const videoCursor = new Map<string, number>();
+
   for (const [index, scene] of payload.scenes.entries()) {
     evento({ etapa: "Gerando narração", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
     const audioName = id + "-" + String(index + 1).padStart(2, "0") + ".mp3";
     const audioPath = path.join(audioDir, audioName);
-    await geraAudio(scene.speech, audioPath);
+    const words = await geraAudio(scene.speech, audioPath);
     const audio = fs.readFileSync(audioPath);
     const parsedDuration = mp3Duration(audio);
     const fallbackDuration = Math.max(2, scene.speech.trim().split(/\s+/).length / 2.5);
-    const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 5);
+    const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 4);
+
+    const sceneLeftMedia = scene.leftMedia ? safeMedia(scene.leftMedia) : defaultLeftMedia;
+    const sceneRightMedia = scene.rightMedia ? safeMedia(scene.rightMedia) : defaultRightMedia;
+    const sceneLeftVideo = isVideo(sceneLeftMedia) ? sceneLeftMedia : "";
+    const sceneRightVideo = isVideo(sceneRightMedia) ? sceneRightMedia : "";
+    const sceneLeftStill = sceneLeftMedia && !sceneLeftVideo ? sceneLeftMedia : "";
+    const sceneRightStill = sceneRightMedia && !sceneRightVideo ? sceneRightMedia : "";
+
+    const leftCursor = sceneLeftVideo ? (videoCursor.get(sceneLeftVideo) ?? 0) : 0;
+    const rightCursor = sceneRightVideo ? (videoCursor.get(sceneRightVideo) ?? 0) : 0;
+
+    if (sceneLeftVideo && scene.active === "left") {
+      videoCursor.set(sceneLeftVideo, leftCursor + durationInFrames);
+    }
+    if (sceneRightVideo && scene.active === "right") {
+      videoCursor.set(sceneRightVideo, rightCursor + durationInFrames);
+    }
+
     segments.push({
       durationInFrames,
       active: scene.active,
       speech: scene.speech,
       expression: scene.expression,
-      leftStill,
-      rightStill,
-      leftVideoFrom: 0,
-      rightVideoFrom: 0,
-      leftPauseFrame: 0,
-      rightPauseFrame: 0,
+      words,
+      leftLabel: scene.leftLabel?.trim() || undefined,
+      rightLabel: scene.rightLabel?.trim() || undefined,
+      leftStill: sceneLeftStill,
+      rightStill: sceneRightStill,
+      leftVideo: sceneLeftVideo || undefined,
+      rightVideo: sceneRightVideo || undefined,
+      leftVideoFrom: leftCursor,
+      rightVideoFrom: rightCursor,
+      leftPauseFrame: leftCursor,
+      rightPauseFrame: rightCursor,
       audio: "comparacoes/audio/" + audioName,
     });
   }

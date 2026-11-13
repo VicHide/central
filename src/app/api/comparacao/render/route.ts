@@ -10,6 +10,10 @@ type SceneInput = {
   active: "left" | "right" | "none";
   speech: string;
   expression: "neutral" | "doubt" | "surprise";
+  leftLabel?: string;
+  rightLabel?: string;
+  leftMedia?: string | null;
+  rightMedia?: string | null;
 };
 
 function validMedia(value: unknown) {
@@ -41,7 +45,8 @@ export async function POST(req: Request) {
   )) {
     return Response.json({ erro: "O roteiro precisa ter de 8 a 10 cenas válidas, com falas preenchidas." }, { status: 400 });
   }
-  if (!leftMedia && !rightMedia) return Response.json({ erro: "Envie pelo menos uma imagem ou vídeo para montar a comparação." }, { status: 400 });
+  const hasSceneMedia = scenes.some((s) => Boolean(validMedia(s.leftMedia) || validMedia(s.rightMedia)));
+  if (!leftMedia && !rightMedia && !hasSceneMedia) return Response.json({ erro: "Envie pelo menos uma imagem ou vídeo para montar a comparação." }, { status: 400 });
 
   const id = randomUUID();
   const dir = path.join(process.cwd(), "data", "comparacoes");
@@ -53,6 +58,10 @@ export async function POST(req: Request) {
       active: scene.active,
       speech: scene.speech.trim(),
       expression: scene.expression,
+      leftLabel: typeof scene.leftLabel === "string" && scene.leftLabel.trim() ? scene.leftLabel.trim().slice(0, 80) : undefined,
+      rightLabel: typeof scene.rightLabel === "string" && scene.rightLabel.trim() ? scene.rightLabel.trim().slice(0, 80) : undefined,
+      leftMedia: validMedia(scene.leftMedia) ?? undefined,
+      rightMedia: validMedia(scene.rightMedia) ?? undefined,
     })),
   };
   fs.writeFileSync(path.join(dir, id + ".json"), JSON.stringify(payload, null, 2), "utf8");
