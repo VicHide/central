@@ -101,6 +101,51 @@ export default function Page() {
   const [compVoz, setCompVoz] = useState("");
   const [compVozLoading, setCompVozLoading] = useState(false);
   const [compRenderLoading, setCompRenderLoading] = useState(false);
+  const [compRascunhoCarregado, setCompRascunhoCarregado] = useState(false);
+
+  // Recupera o último projeto de comparação salvo neste navegador.
+  useEffect(() => {
+    try {
+      const salvo = localStorage.getItem("central:comparacao:rascunho:v1");
+      if (salvo) {
+        const draft = JSON.parse(salvo);
+        setCompTitulo(typeof draft.title === "string" ? draft.title : "");
+        setCompLabelEsq(typeof draft.leftLabel === "string" ? draft.leftLabel : "");
+        setCompLabelDir(typeof draft.rightLabel === "string" ? draft.rightLabel : "");
+        setCompContextoEsq(typeof draft.leftContext === "string" ? draft.leftContext : "");
+        setCompContextoDir(typeof draft.rightContext === "string" ? draft.rightContext : "");
+        setCompMediaEsq(draft.leftMedia && typeof draft.leftMedia.arquivo === "string" ? draft.leftMedia : null);
+        setCompMediaDir(draft.rightMedia && typeof draft.rightMedia.arquivo === "string" ? draft.rightMedia : null);
+        setCompCenas(Array.isArray(draft.scenes) ? draft.scenes : []);
+        setCompVoz(typeof draft.voiceId === "string" ? draft.voiceId : "");
+      }
+    } catch {
+      localStorage.removeItem("central:comparacao:rascunho:v1");
+    } finally {
+      setCompRascunhoCarregado(true);
+    }
+  }, []);
+
+  // Salva os campos e o roteiro automaticamente, sem armazenar os arquivos de mídia no navegador.
+  useEffect(() => {
+    if (!compRascunhoCarregado) return;
+    try {
+      localStorage.setItem("central:comparacao:rascunho:v1", JSON.stringify({
+        title: compTitulo,
+        leftLabel: compLabelEsq,
+        rightLabel: compLabelDir,
+        leftContext: compContextoEsq,
+        rightContext: compContextoDir,
+        leftMedia: compMediaEsq,
+        rightMedia: compMediaDir,
+        scenes: compCenas,
+        voiceId: compVoz,
+        updatedAt: new Date().toISOString(),
+      }));
+    } catch {
+      setCompMsg("Não foi possível salvar o rascunho neste navegador. Verifique o espaço disponível.");
+    }
+  }, [compRascunhoCarregado, compTitulo, compLabelEsq, compLabelDir, compContextoEsq, compContextoDir, compMediaEsq, compMediaDir, compCenas, compVoz]);
 
   const carregaMusicas = async () => {
     try { const d = await buscar<{ faixas: Faixa[] }>("/api/musicas"); setFaixas(d.faixas ?? []); }
@@ -402,10 +447,11 @@ export default function Page() {
           {modo === "comparacao" && (
             <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
               <div className="section-head">
-                <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel.</p></div>
+                <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel. O rascunho é salvo automaticamente neste navegador.</p></div>
                 <span className="step-label">IA · Comparação</span>
               </div>
               <div className="form-body comparison-form">
+                <p className="helper" role="status">{compRascunhoCarregado ? "Rascunho carregado e salvo automaticamente." : "Recuperando último rascunho…"}</p>
                 <div className="fields">
                   <label>Tema da comparação
                     <input type="text" value={compTitulo} onChange={(e) => setCompTitulo(e.target.value)} placeholder="Ex.: Mangekyou vs. Eternal Mangekyou" />
