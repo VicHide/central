@@ -7,7 +7,7 @@ import { Intro, IntroProps, INTRO_FRAMES } from "./Intro";
 import { ZoomCompleto, QuizCompleto, ZoomCompletoProps, QuizCompletoProps } from "./Completo";
 import { TopShort, TopProps, duracaoTop } from "./TopShort";
 import { MusicaProps } from "./Sons";
-import { ComparisonVideo, ComparisonProps, comparisonDefaults, comparisonDuration } from "./ComparisonVideo";
+import { ComparisonVideo, comparisonDefaults, comparisonDuration } from "./ComparisonVideo";
 import dados from "../../data/perguntas.json";
 import dadosZoom from "../../data/zoom.json";
 import dadosIntro from "../../data/intro.json";
