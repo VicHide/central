@@ -112,7 +112,7 @@ const Scene: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const [leftActive, rightActive] = [segment.active === "left", segment.active === "right"];
-  const videoFrom = leftActive ? (segment.leftVideoFrom ?? 0) : (segment.rightVideoFrom ?? 0);
+  const leftVideoFrom = segment.leftVideoFrom ?? 0;\n  const rightVideoFrom = segment.rightVideoFrom ?? 0;
   return (
     <AbsoluteFill style={{
       background: "radial-gradient(circle at 50% 38%, #49366f 0%, #211a31 72%)",
@@ -126,8 +126,8 @@ const Scene: React.FC<{
         position: "absolute", top: 330, left: 34, right: 34,
         display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22,
       }}>
-        <Panel label={props.leftLabel} still={segment.leftStill} video={props.leftVideo} active={leftActive} videoFrom={videoFrom} />
-        <Panel label={props.rightLabel} still={segment.rightStill} video={props.rightVideo} active={rightActive} videoFrom={videoFrom} />
+        <Panel label={props.leftLabel} still={segment.leftStill} video={props.leftVideo} active={leftActive} videoFrom={leftVideoFrom} pauseFrame={segment.leftPauseFrame ?? 0} />
+        <Panel label={props.rightLabel} still={segment.rightStill} video={props.rightVideo} active={rightActive} videoFrom={rightVideoFrom} pauseFrame={segment.rightPauseFrame ?? 0} />
       </div>
       <div style={{
         position: "absolute", top: 790, left: 0, right: 0,
@@ -180,7 +180,7 @@ export const comparisonDefaults: ComparisonProps = {
       expression: "neutral",
       leftStill: "",
       rightStill: "",
-      leftVideoFrom: 0,
+      leftVideoFrom: 0,\n      rightPauseFrame: 0,
     },
     {
       durationInFrames: 150,
@@ -189,7 +189,7 @@ export const comparisonDefaults: ComparisonProps = {
       expression: "neutral",
       leftStill: "comparacao/mangekyou-a-pause.jpg",
       rightStill: "comparacao/mangekyou-b-pause.jpg",
-      rightVideoFrom: 0,
+      rightVideoFrom: 0,\n      leftPauseFrame: 150,
     },
     {
       durationInFrames: 105,
