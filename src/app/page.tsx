@@ -43,7 +43,7 @@ function etapas(j: Job) {
 }
 
 export default function Page() {
-  const [modo, setModo] = useState<"zoom" | "quatro">("zoom");
+  const [modo, setModo] = useState<"zoom" | "quatro" | "comparacao">("zoom");
   const [n, setN] = useState(10);
   const [cortes, setCortes] = useState(1);
   const [seed, setSeed] = useState("");
@@ -270,7 +270,7 @@ export default function Page() {
 
   const rodando = jobs.some((j) => j.status === "rodando");
   const falta = estado.animes < n;
-  const duracao = estimaDuracao(modo, n, cortes);
+  const duracao = modo === "comparacao" ? 0 : estimaDuracao(modo, n, cortes);
 
   return (
     <>
@@ -305,119 +305,117 @@ export default function Page() {
               <h1>Do acervo ao vídeo.</h1>
               <p>As pastas viram perguntas, a abertura entra sozinha e o vídeo sai pronto para conferir.</p>
             </div>
-            <div className="duration-mark"><span>Duração estimada</span><b>{mmss(duracao)}</b></div>
+            <div className="duration-mark"><span>Duração estimada</span><b>{modo === "comparacao" ? "pela narração" : mmss(duracao)}</b></div>
           </div>
 
           <div className="work-grid">
             <section className="composer">
-              <div className="section-head"><div><h2>Novo vídeo</h2><p>Escolha o formato e quantos animes entram. O sorteio prefere o que foi menos usado.</p></div><span className="step-label">Quiz de anime</span></div>
+              <div className="section-head"><div><h2>Novo vídeo</h2><p>{modo === "comparacao" ? "Compare dois elementos e monte um roteiro com narração." : "Escolha o formato e quantos animes entram. O sorteio prefere o que foi menos usado."}</p></div><span className="step-label">{modo === "comparacao" ? "Comparação" : "Quiz de anime"}</span></div>
               <div className="form-body" style={{ marginTop: 24 }}>
                 <div className="fields">
                   <label>Formato
-                    <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro")}>
+                    <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro" | "comparacao")}>
                       <option value="zoom">Zoom e revelação</option>
-                      <option value="quatro">4 imagens com dicas</option>
+                      <option value="quatro">4 imagens com dicas</option>\n                      <option value="comparacao">Comparação</option>
                     </select>
                   </label>
-                  <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
-                  {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
-                  <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
-                </div>
-                <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
-                <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
-                <div className="form-footer">
-                  <p className="helper">Sem renderizar, o painel só prepara os dados e as imagens. Dá para conferir no Remotion Studio antes.</p>
-                  <div className="actions">
-                    <button className="secondary" onClick={studio}>Abrir Remotion Studio</button>
-                    <button className="primary" onClick={gerar} disabled={rodando}>{rodando ? "Aguarde…" : "Gerar projeto"}</button>
+                  {modo !== "comparacao" && <>\n                    <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
+                    {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
+                    <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
                   </div>
-                </div>
-                {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
-                {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
+                  <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
+                  <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
+                  <div className="form-footer">
+                    <p className="helper">Sem renderizar, o painel só prepara os dados e as imagens. Dá para conferir no Remotion Studio antes.</p>
+                    <div className="actions">
+                      <button className="secondary" onClick={studio}>Abrir Remotion Studio</button>
+                      <button className="primary" onClick={gerar} disabled={rodando}>{rodando ? "Aguarde…" : "Gerar projeto"}</button>
+                    </div>
+                  </div>
+                  {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
+                  {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}\n                  </>}
               </div>
             </section>
           </div>
 
-          <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
-            <div className="section-head">
-              <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel.</p></div>
-              <span className="step-label">IA · Comparação</span>
-            </div>
-            <div className="form-body comparison-form">
-              <div className="fields">
-                <label>Tema da comparação
-                  <input type="text" value={compTitulo} onChange={(e) => setCompTitulo(e.target.value)} placeholder="Ex.: Mangekyou vs. Eternal Mangekyou" />
-                </label>
-                <label>Nome do quadro esquerdo
-                  <input type="text" value={compLabelEsq} onChange={(e) => setCompLabelEsq(e.target.value)} placeholder="Ex.: Mangekyou" />
-                </label>
-                <label>Nome do quadro direito
-                  <input type="text" value={compLabelDir} onChange={(e) => setCompLabelDir(e.target.value)} placeholder="Ex.: Eternal Mangekyou" />
-                </label>
+          {modo === "comparacao" && (\n            <section className="composer comparison-composer" id="comparacao" style={{ marginTop: 14 }}>
+              <div className="section-head">
+                <div><h2>Vídeo de comparação</h2><p>Envie os dois quadros e gere um roteiro narrado para revisar no painel.</p></div>
+                <span className="step-label">IA · Comparação</span>
               </div>
-              <div className="comparison-media-grid">
-                <div className="comparison-media">
-                  <strong>Quadro 1 · Esquerdo</strong>
-                  {compMediaEsq ? <div className="comparison-file">
-                    {compMediaEsq.tipo === "imagem" ? <img src={"/" + compMediaEsq.arquivo} alt="Prévia do quadro esquerdo" /> : <div className="comparison-video-file">Vídeo enviado</div>}
-                    <span>{compMediaEsq.nome}</span>
-                    <button type="button" className="secondary" onClick={() => setCompMediaEsq(null)}>Remover</button>
-                  </div> : <label className="comparison-upload">
-                    <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
-                    <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("left", e.target.files?.[0])} disabled={compUpload !== null} />
-                  </label>}
-                  <label>Contexto adicional
-                    <textarea value={compContextoEsq} onChange={(e) => setCompContextoEsq(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
+              <div className="form-body comparison-form">
+                <div className="fields">
+                  <label>Tema da comparação
+                    <input type="text" value={compTitulo} onChange={(e) => setCompTitulo(e.target.value)} placeholder="Ex.: Mangekyou vs. Eternal Mangekyou" />
+                  </label>
+                  <label>Nome do quadro esquerdo
+                    <input type="text" value={compLabelEsq} onChange={(e) => setCompLabelEsq(e.target.value)} placeholder="Ex.: Mangekyou" />
+                  </label>
+                  <label>Nome do quadro direito
+                    <input type="text" value={compLabelDir} onChange={(e) => setCompLabelDir(e.target.value)} placeholder="Ex.: Eternal Mangekyou" />
                   </label>
                 </div>
-                <div className="comparison-media">
-                  <strong>Quadro 2 · Direito</strong>
-                  {compMediaDir ? <div className="comparison-file">
-                    {compMediaDir.tipo === "imagem" ? <img src={"/" + compMediaDir.arquivo} alt="Prévia do quadro direito" /> : <div className="comparison-video-file">Vídeo enviado</div>}
-                    <span>{compMediaDir.nome}</span>
-                    <button type="button" className="secondary" onClick={() => setCompMediaDir(null)}>Remover</button>
-                  </div> : <label className="comparison-upload">
-                    <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
-                    <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("right", e.target.files?.[0])} disabled={compUpload !== null} />
-                  </label>}
-                  <label>Contexto adicional
-                    <textarea value={compContextoDir} onChange={(e) => setCompContextoDir(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
-                  </label>
-                </div>
-              </div>
-              <div className="comparison-actions">
-                <p className="helper">A IA cria cinco cenas: abertura, apresentação de cada quadro, comparação e pergunta final. Você poderá editar todas as falas.</p>
-                <button className="primary" onClick={gerarRoteiroComparacao} disabled={compLoading || compUpload !== null}>
-                  {compLoading ? "Gerando roteiro…" : "Gerar roteiro com IA"}
-                </button>
-              </div>
-              {compMsg && <p className="config-note" role="status">{compMsg}</p>}
-              {compCenas.length > 0 && <div className="comparison-scenes">
-                <div className="comparison-scenes-heading"><h3>Roteiro gerado</h3><span>{compCenas.length} cenas · editável</span></div>
-                {compCenas.map((cena, index) => <div className="comparison-scene" key={index}>
-                  <div className="comparison-scene-title"><strong>Cena {index + 1}</strong><span>{cena.label}</span></div>
-                  <div className="fields">
-                    <label>Foco
-                      <select value={cena.active} onChange={(e) => atualizaCenaComparacao(index, "active", e.target.value)}>
-                        <option value="none">Os dois quadros</option><option value="left">Quadro esquerdo</option><option value="right">Quadro direito</option>
-                      </select>
-                    </label>
-                    <label>Expressão do mascote
-                      <select value={cena.expression} onChange={(e) => atualizaCenaComparacao(index, "expression", e.target.value)}>
-                        <option value="neutral">Neutra</option><option value="doubt">Dúvida</option><option value="surprise">Surpresa</option>
-                      </select>
+                <div className="comparison-media-grid">
+                  <div className="comparison-media">
+                    <strong>Quadro 1 · Esquerdo</strong>
+                    {compMediaEsq ? <div className="comparison-file">
+                      {compMediaEsq.tipo === "imagem" ? <img src={"/" + compMediaEsq.arquivo} alt="Prévia do quadro esquerdo" /> : <div className="comparison-video-file">Vídeo enviado</div>}
+                      <span>{compMediaEsq.nome}</span>
+                      <button type="button" className="secondary" onClick={() => setCompMediaEsq(null)}>Remover</button>
+                    </div> : <label className="comparison-upload">
+                      <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
+                      <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("left", e.target.files?.[0])} disabled={compUpload !== null} />
+                    </label>}
+                    <label>Contexto adicional
+                      <textarea value={compContextoEsq} onChange={(e) => setCompContextoEsq(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
                     </label>
                   </div>
-                  <label>Texto da narração
-                    <textarea value={cena.speech} onChange={(e) => atualizaCenaComparacao(index, "speech", e.target.value)} rows={3} />
-                  </label>
-                </div>)}
-                <p className="helper">A revisão do roteiro está pronta. A próxima etapa é conectar a voz e o render à fila de produção.</p>
-              </div>}
-            </div>
-          </section>
-
-          <section className="composer" id="top" style={{ marginTop: 14 }}>
+                  <div className="comparison-media">
+                    <strong>Quadro 2 · Direito</strong>
+                    {compMediaDir ? <div className="comparison-file">
+                      {compMediaDir.tipo === "imagem" ? <img src={"/" + compMediaDir.arquivo} alt="Prévia do quadro direito" /> : <div className="comparison-video-file">Vídeo enviado</div>}
+                      <span>{compMediaDir.nome}</span>
+                      <button type="button" className="secondary" onClick={() => setCompMediaDir(null)}>Remover</button>
+                    </div> : <label className="comparison-upload">
+                      <span>＋</span><b>Enviar imagem ou vídeo</b><small>JPG, PNG, WebP, MP4, WebM ou MOV · até 80 MB</small>
+                      <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" onChange={(e) => enviaMidiaComparacao("right", e.target.files?.[0])} disabled={compUpload !== null} />
+                    </label>}
+                    <label>Contexto adicional
+                      <textarea value={compContextoDir} onChange={(e) => setCompContextoDir(e.target.value)} rows={3} placeholder="Explique detalhes importantes que a imagem não mostra." />
+                    </label>
+                  </div>
+                </div>
+                <div className="comparison-actions">
+                  <p className="helper">A IA cria cinco cenas: abertura, apresentação de cada quadro, comparação e pergunta final. Você poderá editar todas as falas.</p>
+                  <button className="primary" onClick={gerarRoteiroComparacao} disabled={compLoading || compUpload !== null}>
+                    {compLoading ? "Gerando roteiro…" : "Gerar roteiro com IA"}
+                  </button>
+                </div>
+                {compMsg && <p className="config-note" role="status">{compMsg}</p>}
+                {compCenas.length > 0 && <div className="comparison-scenes">
+                  <div className="comparison-scenes-heading"><h3>Roteiro gerado</h3><span>{compCenas.length} cenas · editável</span></div>
+                  {compCenas.map((cena, index) => <div className="comparison-scene" key={index}>
+                    <div className="comparison-scene-title"><strong>Cena {index + 1}</strong><span>{cena.label}</span></div>
+                    <div className="fields">
+                      <label>Foco
+                        <select value={cena.active} onChange={(e) => atualizaCenaComparacao(index, "active", e.target.value)}>
+                          <option value="none">Os dois quadros</option><option value="left">Quadro esquerdo</option><option value="right">Quadro direito</option>
+                        </select>
+                      </label>
+                      <label>Expressão do mascote
+                        <select value={cena.expression} onChange={(e) => atualizaCenaComparacao(index, "expression", e.target.value)}>
+                          <option value="neutral">Neutra</option><option value="doubt">Dúvida</option><option value="surprise">Surpresa</option>
+                        </select>
+                      </label>
+                    </div>
+                    <label>Texto da narração
+                      <textarea value={cena.speech} onChange={(e) => atualizaCenaComparacao(index, "speech", e.target.value)} rows={3} />
+                    </label>
+                  </div>)}
+                  <p className="helper">A revisão do roteiro está pronta. A próxima etapa é conectar a voz e o render à fila de produção.</p>
+                </div>}
+              </div>
+            </section>\n          )}\n\n          <section className="composer" id="top" style={{ marginTop: 14 }}>
             <div className="section-head"><div><h2>Top 10 para Shorts</h2><p>Ranking do AniList por gênero, temporada ou popularidade, com capas oficiais e contagem regressiva.</p></div><span className="step-label">AniList</span></div>
             <div className="form-body" style={{ marginTop: 24 }}>
               <div className="fields">
