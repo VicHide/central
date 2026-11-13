@@ -80,7 +80,7 @@ const Panel: React.FC<{
 const MascotStage: React.FC<{ active: ComparisonSide; expression: ComparisonExpression; frame: number }> = ({ active, expression, frame }) => {
   const { fps } = useVideoConfig();
   const pop = spring({ frame, fps, config: { damping: 12, stiffness: 150 } });
-  const arrow = active === "left" ? "↖" : active === "right" ? "↗" : "";
+  // Reserved transparent stage for the original mascot asset, to be integrated later.
   return (
     <div style={{
       width: 180, minHeight: 220, display: "flex", flexDirection: "column",
