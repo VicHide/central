@@ -325,7 +325,9 @@ export default function Page() {
                     <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
                     {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
                     <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
-                  </div>
+                  </>}
+                </div>
+                {modo !== "comparacao" && <>
                   <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
                   <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
                   <div className="form-footer">
@@ -337,8 +339,7 @@ export default function Page() {
                   </div>
                   {falta && <p className="config-note">O acervo tem {estado.animes} pasta(s) com imagens e você pediu {n}.</p>}
                   {msg && <p className="config-note" style={{ color: "var(--muted)" }}>{msg}</p>}
-                  </>}
-              </div>
+                </>}
             </section>
           </div>
 
