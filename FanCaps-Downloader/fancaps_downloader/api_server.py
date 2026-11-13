@@ -153,6 +153,11 @@ class QueueService:
             self.log_event(f"Ordem atualizada: {moved['anime_title']} · {moved['episode_title']}.", "info")
             return self.snapshot()
 
+    def clear_logs(self):
+        with self.lock:
+            self.logs.clear()
+            return self.snapshot()
+
     def snapshot(self):
         with self.lock:
             items = [{k: v for k, v in item.items() if k != "folder"} for item in self.items]
@@ -409,6 +414,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = service.resume()
             elif self.path == "/clear":
                 result = service.clear()
+            elif self.path == "/logs/clear":
+                result = service.clear_logs()
             else:
                 return self.send_json({"erro": "Rota não encontrada."}, 404)
             return self.send_json(result)
