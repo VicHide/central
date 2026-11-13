@@ -49,10 +49,13 @@ export default function VozPage() {
     }
   };
 
-  const extension = contentType.includes("mpeg") ? "mp3"
+  const extension = contentType.includes("mpeg") || contentType.includes("mp3") ? "mp3"
     : contentType.includes("wav") ? "wav"
       : contentType.includes("ogg") ? "ogg"
-        : contentType.includes("mp4") ? "m4a" : "audio";
+        : contentType.includes("mp4") ? "m4a"
+          : contentType.includes("aac") ? "aac"
+            : contentType.includes("flac") ? "flac"
+              : contentType.includes("pcm") ? "pcm" : "bin";
 
   return (
     <main className="frames-workspace">
