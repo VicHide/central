@@ -4,7 +4,7 @@ import path from "node:path";
 export type Evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => void;
 
 // Empacota o projeto e renderiza uma composição, informando o progresso (10% a 100%).
-export async function renderVideo(id: string, saida: string, evento: Evento) {
+export async function renderVideo(id: string, saida: string, evento: Evento, inputProps?: Record<string, unknown>) {
   const RAIZ = process.cwd();
   const { bundle } = await import("@remotion/bundler");
   const { selectComposition, renderMedia } = await import("@remotion/renderer");
@@ -20,11 +20,11 @@ export async function renderVideo(id: string, saida: string, evento: Evento) {
     },
   });
   evento({ etapa: "Preparando o render (na primeira vez baixa o navegador)", pct: 20 });
-  const composition = await selectComposition({ serveUrl, id });
+  const composition = await selectComposition({ serveUrl, id, inputProps });
   const inicio = Date.now();
   ultimo = -1;
   await renderMedia({
-    composition, serveUrl, codec: "h264", outputLocation: saida,
+    composition, serveUrl, codec: "h264", outputLocation: saida, ...(inputProps ? { inputProps } : {}),
     onProgress: ({ progress, renderedFrames }) => {
       const pct = 20 + Math.round(progress * 80);
       if (pct === ultimo) return;
