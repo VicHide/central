@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { renderVideo } from "./render";
 import type { ComparisonProps, ComparisonSegment } from "../video/ComparisonVideo";
 
@@ -16,12 +18,13 @@ type Payload = {
   rightLabel: string;
   leftMedia: string | null;
   rightMedia: string | null;
-  voiceId: string;
   scenes: SceneInput[];
 };
 
 const RAIZ = process.cwd();
-const VELOCIDADE_VOZ = 1.12;
+const execFileAsync = promisify(execFile);
+const VOZ = "pt-BR-AntonioNeural";
+const RATE = "+12%";
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
 const arg = (name: string) => {
   const index = process.argv.indexOf("--" + name);
@@ -65,6 +68,35 @@ function safeMedia(relative: string | null) {
   return relative;
 }
 
+async function geraAudio(text: string, destino: string) {
+  const comandos = process.platform === "win32"
+    ? [{ bin: "py", prefix: ["-3"] }, { bin: "python", prefix: [] }]
+    : [{ bin: "python3", prefix: [] }, { bin: "python", prefix: [] }];
+  let ultimoErro: unknown;
+  for (const comando of comandos) {
+    try {
+      await execFileAsync(comando.bin, [
+        ...comando.prefix,
+        "-m", "edge_tts",
+        "--voice", VOZ,
+        "--rate", RATE,
+        "--text", text,
+        "--write-media", destino,
+      ], { windowsHide: true, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+      if (fs.existsSync(destino) && fs.statSync(destino).size > 0) return;
+      throw new Error("O Edge TTS não gerou o arquivo de áudio.");
+    } catch (error) {
+      ultimoErro = error;
+      if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code !== "ENOENT") {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error("Falha ao gerar áudio com Edge TTS: " + detail);
+      }
+    }
+  }
+  const detail = ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro ?? "");
+  throw new Error("Edge TTS não encontrado. Instale as dependências com 'py -m pip install -r requirements-tts.txt' e tente novamente. " + detail);
+}
+
 function preparaPersonagens() {
   const origem = path.join(RAIZ, "acervo");
   const destino = path.join(RAIZ, "public", "comparacoes", "personagens");
@@ -82,9 +114,6 @@ async function main() {
   if (!/^[a-f0-9-]{36}$/i.test(id)) throw new Error("Identificador de render inválido.");
   const payloadPath = path.join(RAIZ, "data", "comparacoes", id + ".json");
   const payload = JSON.parse(fs.readFileSync(payloadPath, "utf8")) as Payload;
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) throw new Error("ELEVENLABS_API_KEY não está configurada.");
-
   preparaPersonagens();
   const leftMedia = safeMedia(payload.leftMedia);
   const rightMedia = safeMedia(payload.rightMedia);
@@ -100,25 +129,13 @@ async function main() {
 
   for (const [index, scene] of payload.scenes.entries()) {
     evento({ etapa: "Gerando narração", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
-    const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(payload.voiceId) + "?output_format=mp3_44100_128", {
-      method: "POST",
-      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: scene.speech,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.48, similarity_boost: 0.75, style: 0.2, use_speaker_boost: true },
-      }),
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new Error("ElevenLabs recusou a narração da cena " + (index + 1) + ": " + detail.slice(0, 500));
-    }
-    const audio = Buffer.from(await response.arrayBuffer());
     const audioName = id + "-" + String(index + 1).padStart(2, "0") + ".mp3";
-    fs.writeFileSync(path.join(audioDir, audioName), audio);
+    const audioPath = path.join(audioDir, audioName);
+    await geraAudio(scene.speech, audioPath);
+    const audio = fs.readFileSync(audioPath);
     const parsedDuration = mp3Duration(audio);
     const fallbackDuration = Math.max(2, scene.speech.trim().split(/\s+/).length / 2.5);
-    const durationInFrames = Math.max(30, Math.ceil(((parsedDuration || fallbackDuration) / VELOCIDADE_VOZ) * fps) + 5);
+    const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 5);
     segments.push({
       durationInFrames,
       active: scene.active,
