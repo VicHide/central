@@ -49,7 +49,9 @@ export const Root: React.FC = () => (
     <Composition id="QuizCompleto" component={QuizCompleto} width={1920} height={1080} fps={FPS} durationInFrames={1}
       defaultProps={{ intro, quiz: base, musica } as QuizCompletoProps}
       calculateMetadata={({ props }) => ({ durationInFrames: INTRO_FRAMES + duracaoTotal(props.quiz) })} />
-    <Composition id="ComparisonVideo" component={ComparisonVideo} width={1080} height={1920} fps={FPS} durationInFrames={1}\n      defaultProps={comparisonDefaults} calculateMetadata={({ props }) => ({ durationInFrames: comparisonDuration(props) })} />\n    <Composition id="TopShort" component={TopShort} width={1080} height={1920} fps={FPS} durationInFrames={1}
+    <Composition id="ComparisonVideo" component={ComparisonVideo} width={1080} height={1920} fps={FPS} durationInFrames={1}
+      defaultProps={comparisonDefaults} calculateMetadata={({ props }) => ({ durationInFrames: comparisonDuration(props) })} />
+    <Composition id="TopShort" component={TopShort} width={1080} height={1920} fps={FPS} durationInFrames={1}
       defaultProps={{ ...(dadosTop as TopProps), musica }} calculateMetadata={({ props }) => ({ durationInFrames: duracaoTop(props) })} />
   </>
 );
