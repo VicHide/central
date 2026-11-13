@@ -1,165 +1,165 @@
 {
-  "titulo": "TOP 10 ANIMES DE ISEKAI",
-  "subtitulo": "2026 · Finalizados · melhor avaliados",
+  "titulo": "TOP 10 ANIMES DE CYBERPUNK",
+  "subtitulo": "Filmes · mais populares",
   "itens": [
     {
       "rank": 1,
-      "titulo": "Re:ZERO -Starting Life in Another World- Season 4",
-      "nota": 90,
+      "titulo": "Akira",
+      "nota": 79,
       "generos": [
         "Action",
         "Adventure",
-        "Drama"
+        "Horror"
       ],
-      "estudio": "WHITE FOX",
-      "episodios": 19,
+      "estudio": "Tokyo Movie Shinsha",
+      "episodios": 1,
       "capa": "gerado-top/top-1.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 156737
+      "ano": 1988,
+      "formato": "MOVIE",
+      "popularidade": 236222
     },
     {
       "rank": 2,
-      "titulo": "Mushoku Tensei: Jobless Reincarnation Season 3",
-      "nota": 86,
+      "titulo": "Ghost in the Shell",
+      "nota": 80,
       "generos": [
-        "Adventure",
-        "Drama",
-        "Ecchi"
+        "Action",
+        "Psychological",
+        "Sci-Fi"
       ],
-      "estudio": "Studio Bind",
-      "episodios": 14,
+      "estudio": "Production I.G",
+      "episodios": 1,
       "capa": "gerado-top/top-2.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 177349
+      "ano": 1995,
+      "formato": "MOVIE",
+      "popularidade": 180688
     },
     {
       "rank": 3,
-      "titulo": "That Time I Got Reincarnated as a Slime Season 4",
-      "nota": 83,
+      "titulo": "Paprika",
+      "nota": 79,
       "generos": [
-        "Action",
-        "Adventure",
-        "Comedy"
+        "Fantasy",
+        "Mystery",
+        "Psychological"
       ],
-      "estudio": "8-bit",
-      "episodios": 24,
+      "estudio": "MADHOUSE",
+      "episodios": 1,
       "capa": "gerado-top/top-3.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 148219
+      "ano": 2006,
+      "formato": "MOVIE",
+      "popularidade": 159655
     },
     {
       "rank": 4,
-      "titulo": "Welcome to Demon School! Iruma-kun Season 4",
+      "titulo": "Redline",
       "nota": 81,
       "generos": [
-        "Comedy",
-        "Fantasy",
-        "Supernatural"
+        "Action",
+        "Romance",
+        "Sci-Fi"
       ],
-      "estudio": "Bandai Namco Pictures",
-      "episodios": 24,
+      "estudio": "MADHOUSE",
+      "episodios": 1,
       "capa": "gerado-top/top-4.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 44827
+      "ano": 2009,
+      "formato": "MOVIE",
+      "popularidade": 115173
     },
     {
       "rank": 5,
-      "titulo": "Sentenced to Be a Hero",
-      "nota": 80,
+      "titulo": "Cowboy Bebop: The Movie - Knockin' on Heaven's Door",
+      "nota": 82,
       "generos": [
         "Action",
         "Drama",
-        "Fantasy"
+        "Mystery"
       ],
-      "estudio": "Studio KAI",
-      "episodios": 12,
+      "estudio": "bones",
+      "episodios": 1,
       "capa": "gerado-top/top-5.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 168883
+      "ano": 2001,
+      "formato": "MOVIE",
+      "popularidade": 85768
     },
     {
       "rank": 6,
-      "titulo": "Saga of Tanya the Evil Season 2",
-      "nota": 80,
+      "titulo": "BELLE",
+      "nota": 73,
       "generos": [
-        "Action",
-        "Fantasy"
+        "Drama",
+        "Music",
+        "Mystery"
       ],
-      "estudio": "NUT",
-      "episodios": 12,
+      "estudio": "Studio Chizu",
+      "episodios": 1,
       "capa": "gerado-top/top-6.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 100404
+      "ano": 2021,
+      "formato": "MOVIE",
+      "popularidade": 71523
     },
     {
       "rank": 7,
-      "titulo": "Clevatess Season 2",
-      "nota": 78,
+      "titulo": "PSYCHO-PASS: The Movie",
+      "nota": 75,
       "generos": [
         "Action",
-        "Drama",
-        "Fantasy"
+        "Sci-Fi"
       ],
-      "estudio": "Lay-duce",
-      "episodios": 13,
+      "estudio": "Production I.G",
+      "episodios": 1,
       "capa": "gerado-top/top-7.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 51508
+      "ano": 2015,
+      "formato": "MOVIE",
+      "popularidade": 67751
     },
     {
       "rank": 8,
-      "titulo": "An Observation Log of My Fiancée Who Calls Herself a Villainess",
-      "nota": 77,
+      "titulo": "Memories",
+      "nota": 76,
       "generos": [
+        "Adventure",
         "Comedy",
-        "Fantasy",
-        "Romance"
+        "Drama"
       ],
-      "estudio": "Ashi Productions",
-      "episodios": 12,
+      "estudio": "Studio 4°C",
+      "episodios": 3,
       "capa": "gerado-top/top-8.jpg",
-      "ano": 2026,
-      "formato": "ONA",
-      "popularidade": 34548
+      "ano": 1995,
+      "formato": "MOVIE",
+      "popularidade": 49612
     },
     {
       "rank": 9,
-      "titulo": "Ascendance of a Bookworm: Adopted Daughter of an Archduke",
-      "nota": 77,
+      "titulo": "Ghost in the Shell 2: Innocence",
+      "nota": 75,
       "generos": [
-        "Drama",
-        "Fantasy",
-        "Slice of Life"
+        "Action",
+        "Psychological",
+        "Sci-Fi"
       ],
-      "estudio": "WIT STUDIO",
-      "episodios": 24,
+      "estudio": "Production I.G",
+      "episodios": 1,
       "capa": "gerado-top/top-9.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 42025
+      "ano": 2004,
+      "formato": "MOVIE",
+      "popularidade": 42106
     },
     {
       "rank": 10,
-      "titulo": "Chained Soldier Season 2",
-      "nota": 74,
+      "titulo": "PSYCHO-PASS: Sinners of the System 1 - Crime and Punishment",
+      "nota": 70,
       "generos": [
         "Action",
-        "Adventure",
-        "Drama"
+        "Psychological",
+        "Sci-Fi"
       ],
-      "estudio": "Passione",
-      "episodios": 12,
+      "estudio": "Production I.G",
+      "episodios": 1,
       "capa": "gerado-top/top-10.jpg",
-      "ano": 2026,
-      "formato": "TV",
-      "popularidade": 54922
+      "ano": 2019,
+      "formato": "MOVIE",
+      "popularidade": 36166
     }
   ],
   "fonte": "Dados e capas: AniList"

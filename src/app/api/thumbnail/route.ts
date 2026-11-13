@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import sharp, { type OverlayOptions } from "sharp";
 import { randomInt } from "node:crypto";
+import { comporThumbnail, pngTocaTopo, type Layout, type Segmento } from "@/server/thumbnail/compor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ type Registro = {
   numero?: number;
   capa?: string | null;
   imagem?: string | null;
-  imagens?: string[];
+  imagens?: (string | null)[];
 };
 
 const EXT = /\.(jpe?g|png|webp)$/i;
@@ -36,60 +36,36 @@ function embaralha<T>(itens: T[]): T[] {
   return copia;
 }
 
-function pngAleatorio(): string | null {
+// Escolhe o PNG do personagem. PNG com o topo cortado (cabelo cortado) combina com o layout lateral,
+// onde ele sangra para fora da borda de cima; no layout centro damos preferência aos PNGs inteiros.
+async function escolhePng(layout: Layout): Promise<string | null> {
   if (!fs.existsSync(pastaPngs)) return null;
   const arquivos = fs.readdirSync(pastaPngs, { withFileTypes: true })
     .filter((item) => item.isFile() && /\.png$/i.test(item.name))
     .map((item) => path.join(pastaPngs, item.name));
-  return arquivos.length ? arquivos[randomInt(arquivos.length)] : null;
+  if (arquivos.length === 0) return null;
+  const cortados: string[] = [], inteiros: string[] = [];
+  for (const f of arquivos) {
+    try { ((await pngTocaTopo(f, fs.statSync(f).mtimeMs)) ? cortados : inteiros).push(f); } catch { inteiros.push(f); }
+  }
+  const preferidos = layout === "lateral"
+    ? (cortados.length && randomInt(10) < 7 ? cortados : arquivos)
+    : (inteiros.length ? inteiros : arquivos);
+  return preferidos[randomInt(preferidos.length)];
 }
 
-async function imagemCartao(arquivo: string, largura: number, altura: number, cor: string) {
-  const imagem = await sharp(arquivo)
-    .rotate()
-    .resize(largura, altura, { fit: "cover", position: "attention" })
-    .png()
-    .toBuffer();
-
-  // A própria imagem é recortada pelo clipPath; a moldura sozinha não impede vazamentos nos cantos.
-  const svg = Buffer.from(`<svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <clipPath id="cardClip"><rect x="5" y="5" width="${largura - 10}" height="${altura - 10}" rx="27"/></clipPath>
-    </defs>
-    <image x="5" y="5" width="${largura - 10}" height="${altura - 10}" href="data:image/png;base64,${imagem.toString("base64")}" preserveAspectRatio="none" clip-path="url(#cardClip)"/>
-    <rect x="5" y="5" width="${largura - 10}" height="${altura - 10}" rx="27" fill="none" stroke="#111827" stroke-width="17"/>
-    <rect x="8" y="8" width="${largura - 16}" height="${altura - 16}" rx="24" fill="none" stroke="#fff" stroke-width="11"/>
-    <rect x="14" y="14" width="${largura - 28}" height="${altura - 28}" rx="19" fill="none" stroke="${cor}" stroke-width="6"/>
-  </svg>`);
-  return sharp(svg).png().toBuffer();
-}
-async function pngComContorno(arquivo: string) {
-  const imagem = await sharp(arquivo)
-    .rotate()
-    .resize(650, 650, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toBuffer();
-
-  const svg = Buffer.from(`<svg width="710" height="710" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <filter id="outline" x="-25%" y="-25%" width="150%" height="150%">
-        <feMorphology in="SourceAlpha" operator="dilate" radius="17" result="outer"/>
-        <feFlood flood-color="#111827" result="dark"/>
-        <feComposite in="dark" in2="outer" operator="in" result="darkStroke"/>
-        <feMorphology in="SourceAlpha" operator="dilate" radius="9" result="inner"/>
-        <feFlood flood-color="#fff" result="light"/>
-        <feComposite in="light" in2="inner" operator="in" result="lightStroke"/>
-        <feMerge><feMergeNode in="darkStroke"/><feMergeNode in="lightStroke"/><feMergeNode in="SourceGraphic"/></feMerge>
-      </filter>
-    </defs>
-    <image x="30" y="30" width="650" height="650" href="data:image/png;base64,${imagem.toString("base64")}" filter="url(#outline)"/>
-  </svg>`);
-  return sharp(svg).png().toBuffer();
-}
-
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const arquivoPng = pngAleatorio();
+    const corpo = (await req.json().catch(() => ({}))) as { layout?: unknown; seta?: unknown; tema?: unknown };
+    const layout: Layout | null = corpo.layout === undefined || corpo.layout === "centro" ? "centro" : corpo.layout === "lateral" ? "lateral" : null;
+    if (!layout) return Response.json({ erro: "Layout inválido. Use centro ou lateral." }, { status: 400 });
+    const seta = corpo.seta !== false;
+    const tema = typeof corpo.tema === "string" ? corpo.tema.trim().toUpperCase() : "";
+    if (tema && !/^[A-ZÀ-Ý0-9 ]{1,18}$/.test(tema)) {
+      return Response.json({ erro: "O tema aceita só letras, números e espaços (até 18 caracteres)." }, { status: 400 });
+    }
+
+    const arquivoPng = await escolhePng(layout);
     if (!arquivoPng) {
       return Response.json({ erro: "Não encontrei arquivos PNG em acervo/pngs. Adicione pelo menos um PNG nessa pasta." }, { status: 422 });
     }
@@ -102,101 +78,33 @@ export async function POST() {
       return Response.json({ erro: "O último quiz precisa ter pelo menos 4 animes para montar a thumbnail." }, { status: 422 });
     }
 
-    const candidatos = dados.map((registro, indice) => ({
-      arquivo: arquivoPublico(modo === "zoom" ? registro.imagem : registro.capa) ??
-        arquivoPublico(registro.imagens?.[0]),
-      numero: Number.isFinite(registro.numero) ? registro.numero! : indice + 1,
-    })).filter((item): item is { arquivo: string; numero: number } => Boolean(item.arquivo));
-
+    // Cada cartão mostra uma cena do anime; se não houver, usa a capa.
+    const candidatos = dados.map((registro) => {
+      const cenas = modo === "zoom" ? [registro.imagem] : (registro.imagens ?? []);
+      const arquivos = cenas.map(arquivoPublico).filter((f): f is string => Boolean(f));
+      return arquivos.length ? arquivos[randomInt(arquivos.length)] : arquivoPublico(registro.capa);
+    }).filter((f): f is string => Boolean(f));
     if (candidatos.length < 4) {
       return Response.json({ erro: "Encontrei menos de 4 animes com imagens válidas no último quiz." }, { status: 422 });
     }
 
-    const sorteados = embaralha(candidatos).slice(0, 4);
-    const largura = 610;
-    const altura = 320;
-    const cartoes = [
-      { x: 18, y: 18, cor: "#ff9c32" },
-      { x: 652, y: 18, cor: "#19d4e8" },
-      { x: 18, y: 382, cor: "#a879ff" },
-      { x: 652, y: 382, cor: "#ff4d88" },
-    ];
+    const titulo: Segmento[][] = [[{ texto: String(dados.length), cor: "branco" }, { texto: "ANIMES", cor: "ouro" }]];
+    if (tema) titulo.push([{ texto: tema, cor: "roxo" }]);
 
-    const fundo = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop stop-color="#ff4f87"/><stop offset=".28" stop-color="#ff9d35"/><stop offset=".58" stop-color="#7358e8"/><stop offset=".82" stop-color="#16b9d4"/><stop offset="1" stop-color="#25d6a2"/>
-        </linearGradient>
-        <radialGradient id="glow"><stop stop-color="#fff" stop-opacity=".32"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-        <pattern id="grain" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.6" fill="#fff" opacity=".2"/></pattern>
-      </defs>
-      <rect width="1280" height="720" fill="url(#bg)"/>
-      <ellipse cx="640" cy="340" rx="680" ry="480" fill="url(#glow)"/>
-      <g fill="none" stroke="#fff" stroke-width="17" stroke-linecap="square" opacity=".96">
-        <path d="M-120 115 L250 -80 M-90 180 L315 -35 M1010 805 L1390 425 M950 790 L1330 410"/>
-        <path d="M520 -90 L700 90 M580 -110 L760 70 M-80 570 L70 720 M-20 545 L125 690" stroke-width="11"/>
-      </g>
-      <g fill="#fff" opacity=".94">
-        <path d="M0 330 L0 365 L250 115 L215 115 Z"/>
-        <path d="M1030 720 L1065 720 L1280 505 L1280 470 Z"/>
-        <circle cx="640" cy="360" r="7"/><circle cx="670" cy="360" r="7"/><circle cx="700" cy="360" r="7"/>
-      </g>
-      <rect width="1280" height="720" fill="url(#grain)"/>
-    </svg>`);
+    const png = await comporThumbnail({
+      layout,
+      cartoes: embaralha(candidatos).slice(0, 4),
+      personagem: arquivoPng,
+      titulo,
+      seta,
+      seed: randomInt(1_000_000_000),
+    });
 
-    const camadas: OverlayOptions[] = [{ input: fundo, left: 0, top: 0 }];
-    for (let i = 0; i < cartoes.length; i++) {
-      const q = cartoes[i];
-      camadas.push({
-        input: await imagemCartao(sorteados[i].arquivo, largura, altura, q.cor),
-        left: q.x,
-        top: q.y,
-      });
-    }
-
-    // O personagem fica acima dos quatro quadros, como elemento principal da composição.
-    const pngCentral = await pngComContorno(arquivoPng);
-    camadas.push({ input: pngCentral, left: 285, top: 18 });
-
-    const elementos = Buffer.from(`<svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff36a"/><stop offset="1" stop-color="#ffad16"/></linearGradient>
-        <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1ff0f0"/><stop offset="1" stop-color="#168bff"/></linearGradient>
-        <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
-      </defs>
-      <defs>
-        <filter id="badgeGlow" x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation="12" result="blur"/>
-          <feFlood flood-color="#fff" flood-opacity=".95" result="white"/>
-          <feComposite in="white" in2="blur" operator="in" result="glow"/>
-          <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-        <linearGradient id="badgeFill" x1="0" y1="0" x2="1" y2="1">
-          <stop stop-color="#fff"/><stop offset=".48" stop-color="#ffe56b"/><stop offset="1" stop-color="#ff9d24"/>
-        </linearGradient>
-      </defs>
-      <g font-family="DejaVu Sans,sans-serif" font-weight="900" text-anchor="middle" filter="url(#badgeGlow)">
-        <g><circle cx="76" cy="76" r="43" fill="#15182c" opacity=".75"/><circle cx="76" cy="76" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="76" y="91" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[0].numero}</text></g>
-        <g><circle cx="1204" cy="76" r="43" fill="#15182c" opacity=".75"/><circle cx="1204" cy="76" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="1204" y="91" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[1].numero}</text></g>
-        <g><circle cx="76" cy="644" r="43" fill="#15182c" opacity=".75"/><circle cx="76" cy="644" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="76" y="659" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[2].numero}</text></g>
-        <g><circle cx="1204" cy="644" r="43" fill="#15182c" opacity=".75"/><circle cx="1204" cy="644" r="35" fill="url(#badgeFill)" stroke="#fff" stroke-width="7"/><text x="1204" y="659" font-size="46" fill="#202039" stroke="#fff" stroke-width="2" paint-order="stroke">${sorteados[3].numero}</text></g>
-      </g>
-      <ellipse cx="640" cy="628" rx="330" ry="28" fill="#000" opacity=".35" filter="url(#shadow)"/>
-      <circle cx="920" cy="108" r="48" fill="#f33c69" stroke="#fff" stroke-width="9"/>
-      <text x="920" y="133" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="72" font-weight="900" fill="#fff" stroke="#a81745" stroke-width="3" paint-order="stroke">?</text>
-      <text x="640" y="672" text-anchor="middle" font-family="Impact, DejaVu Sans Condensed, sans-serif" font-size="88" font-weight="900" letter-spacing="-2" fill="url(#yellow)" stroke="#171329" stroke-width="19" stroke-linejoin="round" paint-order="stroke" style="filter:drop-shadow(0 7px 2px #111)">${dados.length} ANIMES</text>
-    </svg>`);
-
-    const png = await sharp({ create: { width: 1280, height: 720, channels: 4, background: "#101a32" } })
-      .composite([...camadas, { input: elementos }])
-      .png()
-      .toBuffer();
-
-    return new Response(png, {
+    return new Response(new Uint8Array(png), {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "no-store",
-        "Content-Disposition": 'inline; filename="thumbnail-quiz.png"',
+        "Content-Disposition": `inline; filename="thumbnail-${layout}.png"`,
       },
     });
   } catch (erro) {

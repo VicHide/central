@@ -75,3 +75,12 @@ Leia os termos de uso do AniList antes de monetizar. A capa é arte promocional 
 `--de 2015 --ate 2020`, `--nota-min 75`, além de gênero, temporada/ano e critério. O Short agora dura cerca de 56 s
 (abertura 3 s, 5 s por item, fechamento 3 s) e mostra nota, gêneros, ano, formato, episódios, estúdio e popularidade.
 
+
+## Gerador de thumbnails (novo visual)
+Painel > Gerador de thumbnails gera duas opções por clique:
+- **centro**: quatro cartões nos cantos e o personagem no meio (com "?" fixo e seta opcional);
+- **lateral**: grade 2x2 à esquerda e o personagem grande na lateral, sangrando para fora da borda. É o melhor formato para PNG com o cabelo cortado no topo.
+
+O título é desenhado como vetor com a fonte Luckiest Guy (em `src/assets/fonts`, licença Apache 2.0), então sai igual em qualquer
+computador. O campo "Tema" cria uma segunda linha em roxo (ex.: `200 ANIMES` + `OLHOS`). O contorno branco e escuro do personagem,
+a sombra, as medalhas numeradas e a seta são gerados automaticamente. Coloque os recortes em `acervo/pngs/`.

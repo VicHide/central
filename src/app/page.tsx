@@ -65,7 +65,9 @@ export default function Page() {
   const [tags, setTags] = useState("");
   const [tagsMsg, setTagsMsg] = useState("");
   const [tagsLoading, setTagsLoading] = useState(false);
-  const [thumbUrl, setThumbUrl] = useState("");
+  const [thumbs, setThumbs] = useState<{ centro: string; lateral: string }>({ centro: "", lateral: "" });
+  const [thumbSeta, setThumbSeta] = useState(true);
+  const [thumbTema, setThumbTema] = useState("");
   const [thumbMsg, setThumbMsg] = useState("");
   const [thumbLoading, setThumbLoading] = useState(false);
   const [topThumbUrl, setTopThumbUrl] = useState("");
@@ -163,15 +165,19 @@ export default function Page() {
   const gerarThumbnail = async () => {
     setThumbLoading(true); setThumbMsg("");
     try {
-      const r = await fetch("/api/thumbnail", { method: "POST" });
-      if (!r.ok) {
-        const d = await r.json();
-        throw new Error(d.erro ?? "Não foi possível gerar a thumbnail.");
+      const corpo = JSON.stringify({ seta: thumbSeta, tema: thumbTema.trim() || undefined });
+      const pedir = (layout: "centro" | "lateral") => fetch("/api/thumbnail", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...JSON.parse(corpo), layout }) });
+      const [rc, rl] = await Promise.all([pedir("centro"), pedir("lateral")]);
+      for (const r of [rc, rl]) {
+        if (!r.ok) { const d = await r.json(); throw new Error(d.erro ?? "Não foi possível gerar a thumbnail."); }
       }
-      const blob = await r.blob();
-      const url = URL.createObjectURL(blob);
-      setThumbUrl((anterior) => { if (anterior) URL.revokeObjectURL(anterior); return url; });
-      setThumbMsg("Thumbnail gerada. Você pode sortear outra ou salvar o PNG.");
+      const [bc, bl] = await Promise.all([rc.blob(), rl.blob()]);
+      setThumbs((anterior) => {
+        if (anterior.centro) URL.revokeObjectURL(anterior.centro);
+        if (anterior.lateral) URL.revokeObjectURL(anterior.lateral);
+        return { centro: URL.createObjectURL(bc), lateral: URL.createObjectURL(bl) };
+      });
+      setThumbMsg("Duas opções geradas. Você pode sortear outras ou baixar a que preferir.");
     } catch (e) { setThumbMsg(e instanceof Error ? e.message : "Erro ao gerar thumbnail."); }
     finally { setThumbLoading(false); }
   };
@@ -372,24 +378,26 @@ export default function Page() {
           </section>
 
           <section className="composer" id="thumbnail" style={{ marginTop: 14 }}>
-            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um quinto para o destaque, sem repetir.</p></div><span className="step-label">1280 × 720</span></div>
+            <div className="section-head"><div><h2>Gerador de thumbnails</h2><p>Sorteia quatro animes do último quiz e um personagem PNG, e gera duas opções: personagem no centro e personagem na lateral.</p></div><span className="step-label">1280 × 720</span></div>
             <div className="form-body" style={{ marginTop: 20 }}>
-              <div className="form-footer">
-                <p className="helper">Usa as imagens já preparadas em public/gerado/. O número de animes vem do último quiz.</p>
-                <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : "Gerar thumbnail"}</button></div>
+              <div className="fields">
+                <label>Tema no título (opcional)<input value={thumbTema} maxLength={18} onChange={(e) => setThumbTema(e.target.value)} placeholder="ex.: OLHOS" /></label>
               </div>
-              {thumbUrl && <div style={{ marginTop: 20 }}>
-                <Image
-                  src={thumbUrl}
-                  alt="Prévia da thumbnail gerada"
-                  width={1280}
-                  height={720}
-                  unoptimized
-                  style={{ display: "block", width: "100%", maxWidth: 900, height: "auto", borderRadius: 10, border: "1px solid var(--border)" }}
-                />
-                <div className="actions" style={{ marginTop: 12 }}>
-                  <a className="secondary" href={thumbUrl} download="thumbnail-quiz.png" style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a>
-                </div>
+              <label className="check"><input type="checkbox" checked={thumbSeta} onChange={(e) => setThumbSeta(e.target.checked)} /> Seta apontando para um quadro</label>
+              <div className="form-footer">
+                <p className="helper">Usa as imagens de public/gerado/ e os PNGs de acervo/pngs. PNG com o cabelo cortado no topo combina com a opção lateral.</p>
+                <div className="actions"><button className="secondary" onClick={gerarThumbnail} disabled={thumbLoading}>{thumbLoading ? "Gerando…" : thumbs.centro ? "Sortear outras" : "Gerar thumbnails"}</button></div>
+              </div>
+              {(thumbs.centro || thumbs.lateral) && <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
+                {([["centro", "Personagem no centro"], ["lateral", "Personagem na lateral"]] as const).map(([chave, rotulo]) => thumbs[chave] && (
+                  <div key={chave}>
+                    <Image src={thumbs[chave]} alt={`Prévia: ${rotulo}`} width={1280} height={720} unoptimized style={{ display: "block", width: "100%", height: "auto", borderRadius: 10, border: "1px solid var(--border)" }} />
+                    <div className="actions" style={{ marginTop: 10, alignItems: "center", gap: 12 }}>
+                      <span className="mut">{rotulo}</span>
+                      <a className="secondary" href={thumbs[chave]} download={`thumbnail-${chave}.png`} style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>Baixar PNG</a>
+                    </div>
+                  </div>
+                ))}
               </div>}
               {thumbMsg && <p className="config-note" style={{ color: "var(--muted)" }}>{thumbMsg}</p>}
             </div>
