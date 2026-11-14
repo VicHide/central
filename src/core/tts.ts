@@ -25,7 +25,7 @@ const EDGE_TTS_SCRIPT = [
   "import asyncio, json, sys, edge_tts",
   "async def main():",
   "    text, voice, rate, pitch, audio_path, words_path = sys.argv[1:7]",
-  "    comm = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)",
+  "    comm = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch, boundary='WordBoundary')",
   "    words = []",
   "    with open(audio_path, 'wb') as f:",
   "        async for chunk in comm.stream():",
@@ -160,33 +160,44 @@ async function geraEdge(
   const wordsPath = destino.replace(/\.mp3$/i, ".words.json");
   let ultimoErro: unknown;
 
-  for (const comando of comandos) {
-    try {
-      await execFileAsync(comando.bin, [
-        ...comando.prefix,
-        "-c", EDGE_TTS_SCRIPT,
-        spokenText, edgeCfg.voice, edgeCfg.rate, edgeCfg.pitch, destino, wordsPath,
-      ], { windowsHide: true, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
-      if (fs.existsSync(destino) && fs.statSync(destino).size > 0) {
-        const durationSec = mp3Duration(fs.readFileSync(destino));
-        let words: TtsWord[] | undefined;
-        if (fs.existsSync(wordsPath)) {
-          const parsed = JSON.parse(fs.readFileSync(wordsPath, "utf8")) as TtsWord[];
-          if (Array.isArray(parsed) && parsed.length > 0) words = parsed;
+  const tentativas = [
+    edgeCfg,
+    edgeCfg,
+    { ...edgeCfg, pitch: "+0Hz" },
+  ];
+
+  for (let i = 0; i < tentativas.length; i++) {
+    const cfg = tentativas[i];
+    if (i > 0) await new Promise((r) => setTimeout(r, i * 900));
+
+    for (const comando of comandos) {
+      try {
+        await execFileAsync(comando.bin, [
+          ...comando.prefix,
+          "-c", EDGE_TTS_SCRIPT,
+          spokenText, cfg.voice, cfg.rate, cfg.pitch, destino, wordsPath,
+        ], { windowsHide: true, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+        if (fs.existsSync(destino) && fs.statSync(destino).size > 0) {
+          const durationSec = mp3Duration(fs.readFileSync(destino));
+          let words: TtsWord[] | undefined;
+          if (fs.existsSync(wordsPath)) {
+            const parsed = JSON.parse(fs.readFileSync(wordsPath, "utf8")) as TtsWord[];
+            if (Array.isArray(parsed) && parsed.length > 0) words = parsed;
+          }
+          return { durationSec, words };
         }
-        return { durationSec, words };
-      }
-      throw new Error("O Edge TTS não gerou o arquivo de áudio.");
-    } catch (error) {
-      ultimoErro = error;
-      if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code !== "ENOENT") {
-        const detail = error instanceof Error ? error.message : String(error);
-        throw new Error("Falha ao gerar áudio com Edge TTS: " + detail);
+        throw new Error("O Edge TTS não gerou o arquivo de áudio.");
+      } catch (error) {
+        ultimoErro = error;
+        if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code === "ENOENT") {
+          continue;
+        }
+        break;
       }
     }
   }
   const detail = ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro ?? "");
-  throw new Error("Edge TTS não encontrado. Instale com 'py -m pip install -r requirements-tts.txt'. " + detail);
+  throw new Error("Falha ao gerar áudio com Edge TTS: " + detail);
 }
 
 /**
