@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { aplicaPronuncia } from "@/core/pronuncia";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,9 +71,11 @@ export async function POST(req: Request) {
     );
   }
 
+  const spokenText = aplicaPronuncia(text);
+
   if (voice === "antonio" || voice === "andrew") {
     try {
-      const mp3 = await geraEdgeVoz(text, voice);
+      const mp3 = await geraEdgeVoz(spokenText, voice);
       return new Response(new Uint8Array(mp3), {
         status: 200,
         headers: {
@@ -104,7 +107,7 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        text,
+        text: spokenText,
         intent: { language: "pt-BR", optimizeFor: "accuracy" },
         voice: "leo",
         model: "tts",

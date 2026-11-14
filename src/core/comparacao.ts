@@ -3,6 +3,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { renderVideo } from "./render";
+import { aplicaPronuncia } from "./pronuncia";
 import type { ComparisonProps, ComparisonSegment, WordTiming } from "../video/ComparisonVideo";
 
 type SceneInput = {
@@ -263,14 +264,19 @@ async function main() {
     let parsedDuration = 0;
     let audioRate = 1;
 
+    const spokenSpeech = aplicaPronuncia(scene.speech);
     if (useSpeko) {
-      const res = await geraAudioSpeko(scene.speech, audioDir, baseName, spekoKey);
+      const res = await geraAudioSpeko(spokenSpeech, audioDir, baseName, spekoKey);
       audioFileName = res.fileName;
       parsedDuration = res.durationSec;
       audioRate = SPEKO_RATE;
     } else {
       const audioPath = path.join(audioDir, audioFileName);
-      words = await geraAudio(scene.speech, audioPath, edgeCfg);
+      const rawWords = await geraAudio(spokenSpeech, audioPath, edgeCfg);
+      if (rawWords) {
+        const originalTokens = scene.speech.trim().split(/\s+/).filter(Boolean);
+        words = rawWords.map((w, i) => ({ ...w, text: originalTokens[i] ?? w.text }));
+      }
       parsedDuration = mp3Duration(fs.readFileSync(audioPath));
     }
 
