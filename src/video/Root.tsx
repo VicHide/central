@@ -8,6 +8,7 @@ import { ZoomCompleto, QuizCompleto, ZoomCompletoProps, QuizCompletoProps } from
 import { TopShort, TopProps, duracaoTop } from "./TopShort";
 import { MusicaProps } from "./Sons";
 import { ComparisonVideo, comparisonDefaults, comparisonDuration } from "./ComparisonVideo";
+import { StoryShort, storyDefaults, storyDuration } from "./StoryShort";
 import dados from "../../data/perguntas.json";
 import dadosZoom from "../../data/zoom.json";
 import dadosIntro from "../../data/intro.json";
@@ -51,6 +52,8 @@ export const Root: React.FC = () => (
       calculateMetadata={({ props }) => ({ durationInFrames: INTRO_FRAMES + duracaoTotal(props.quiz) })} />
     <Composition id="ComparisonVideo" component={ComparisonVideo} width={1080} height={1920} fps={FPS} durationInFrames={1}
       defaultProps={comparisonDefaults} calculateMetadata={({ props }) => ({ durationInFrames: comparisonDuration(props) })} />
+    <Composition id="StoryShort" component={StoryShort} width={1080} height={1920} fps={FPS} durationInFrames={1}
+      defaultProps={{ ...storyDefaults, musica }} calculateMetadata={({ props }) => ({ durationInFrames: storyDuration(props) })} />
     <Composition id="TopShort" component={TopShort} width={1080} height={1920} fps={FPS} durationInFrames={1}
       defaultProps={{ ...(dadosTop as TopProps), musica }} calculateMetadata={({ props }) => ({ durationInFrames: duracaoTop(props) })} />
   </>

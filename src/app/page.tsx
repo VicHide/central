@@ -12,6 +12,7 @@ type Estado = { animes: number; promos: number; navegador: boolean; musicas: num
 type Faixa = { arquivo: string; titulo: string; artista?: string; credito?: string; volume?: number; ativa?: boolean };
 type ComparacaoMedia = { arquivo: string; nome: string; tipo: "imagem" | "video"; bytes: number };
 type ComparacaoCena = { label: string; active: "left" | "right" | "none"; speech: string; expression: "neutral" | "doubt" | "surprise" };
+type StoryCena = { speech: string; media?: ComparacaoMedia | null; motion: "auto" | "zoom-in" | "zoom-out" | "pan-left" | "pan-right"; hookTop?: string; hookBottom?: string };
 
 
 const buscar = async <T,>(url: string): Promise<T> => (await fetch(url, { cache: "no-store" })).json();
@@ -43,7 +44,7 @@ function etapas(j: Job) {
 }
 
 export default function Page() {
-  const [modo, setModo] = useState<"zoom" | "quatro" | "comparacao">("zoom");
+  const [modo, setModo] = useState<"zoom" | "quatro" | "comparacao" | "historia">("zoom");
   const [n, setN] = useState(10);
   const [cortes, setCortes] = useState(1);
   const [seed, setSeed] = useState("");
@@ -106,6 +107,19 @@ export default function Page() {
   const [compLoading, setCompLoading] = useState(false);
   const [compRenderLoading, setCompRenderLoading] = useState(false);
   const [compRascunhoCarregado, setCompRascunhoCarregado] = useState(false);
+
+  const [histTitulo, setHistTitulo] = useState("");
+  const [histContexto, setHistContexto] = useState("");
+  const [histVoz, setHistVoz] = useState<"leo" | "antonio" | "andrew">("leo");
+  const [histMusica, setHistMusica] = useState(true);
+  const [histCenas, setHistCenas] = useState<StoryCena[]>([
+    { speech: "", media: null, motion: "auto", hookTop: "", hookBottom: "" },
+    { speech: "", media: null, motion: "auto" },
+  ]);
+  const [histMsg, setHistMsg] = useState("");
+  const [histLoading, setHistLoading] = useState(false);
+  const [histRenderLoading, setHistRenderLoading] = useState(false);
+  const [histUploadIndex, setHistUploadIndex] = useState<number | null>(null);
 
   // Recupera o último projeto de comparação salvo neste navegador.
   useEffect(() => {
@@ -353,6 +367,80 @@ export default function Page() {
     setCompCenas((atual) => atual.map((cena, i) => i === index ? { ...cena, [campo]: valor } as ComparacaoCena : cena));
   };
 
+  const enviaMidiaHistoria = async (index: number, arquivo?: File) => {
+    if (!arquivo) return;
+    setHistUploadIndex(index); setHistMsg("");
+    try {
+      const form = new FormData();
+      form.set("arquivo", arquivo);
+      const r = await fetch("/api/comparacao/upload", { method: "POST", body: form });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível enviar o arquivo.");
+      const media: ComparacaoMedia = d;
+      setHistCenas((atual) => atual.map((c, i) => i === index ? { ...c, media } : c));
+      setHistMsg(`${arquivo.name} enviado para a cena ${index + 1}.`);
+    } catch (e) {
+      setHistMsg(e instanceof Error ? e.message : "Erro ao enviar mídia.");
+    } finally {
+      setHistUploadIndex(null);
+    }
+  };
+
+  const gerarRoteiroHistoria = async () => {
+    setHistLoading(true); setHistMsg("");
+    try {
+      const r = await fetch("/api/historia/roteiro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: histTitulo, context: histContexto }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível gerar o roteiro.");
+      const novas: StoryCena[] = (d.scenes ?? []).map((s: { speech: string }, idx: number) => ({
+        speech: s.speech,
+        media: histCenas[idx]?.media ?? null,
+        motion: histCenas[idx]?.motion ?? "auto",
+        ...(idx === 0 ? { hookTop: d.hookTop ?? "", hookBottom: d.hookBottom ?? "" } : {}),
+      }));
+      setHistCenas(novas);
+      setHistMsg("Roteiro gerado! Agora envie uma imagem ou vídeo em cada cena.");
+    } catch (e) {
+      setHistMsg(e instanceof Error ? e.message : "Erro ao gerar roteiro.");
+    } finally {
+      setHistLoading(false);
+    }
+  };
+
+  const renderizarHistoria = async () => {
+    setHistRenderLoading(true); setHistMsg("");
+    try {
+      const r = await fetch("/api/historia/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: histTitulo,
+          voice: histVoz,
+          useMusic: histMusica,
+          scenes: histCenas.map((c) => ({
+            speech: c.speech,
+            media: c.media?.arquivo,
+            motion: c.motion === "auto" ? undefined : c.motion,
+            hookTop: c.hookTop,
+            hookBottom: c.hookBottom,
+          })),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.erro ?? "Não foi possível iniciar a renderização.");
+      setHistMsg("Renderização do Short iniciada! Acompanhe em Produção; o MP4 aparecerá em Saídas.");
+      await carrega();
+    } catch (e) {
+      setHistMsg(e instanceof Error ? e.message : "Erro ao iniciar renderização.");
+    } finally {
+      setHistRenderLoading(false);
+    }
+  };
+
   const studio = async () => {
     const d = await (await fetch("/api/studio", { method: "POST" })).json();
     setTimeout(() => window.open(d.url, "_blank"), 2500);
@@ -360,7 +448,7 @@ export default function Page() {
 
   const rodando = jobs.some((j) => j.status === "rodando");
   const falta = estado.animes < n;
-  const duracao = modo === "comparacao" ? 0 : estimaDuracao(modo, n, cortes);
+  const duracao = modo === "comparacao" || modo === "historia" ? 0 : estimaDuracao(modo, n, cortes);
 
   return (
     <>
@@ -395,7 +483,7 @@ export default function Page() {
               <h1>Do acervo ao vídeo.</h1>
               <p>As pastas viram perguntas, a abertura entra sozinha e o vídeo sai pronto para conferir.</p>
             </div>
-            <div className="duration-mark"><span>Duração estimada</span><b>{modo === "comparacao" ? "pela narração" : mmss(duracao)}</b></div>
+            <div className="duration-mark"><span>Duração estimada</span><b>{modo === "comparacao" || modo === "historia" ? "pela narração" : mmss(duracao)}</b></div>
           </div>
 
           <div className="work-grid">
@@ -404,19 +492,20 @@ export default function Page() {
               <div className="form-body" style={{ marginTop: 24 }}>
                 <div className="fields">
                   <label>Formato
-                    <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro" | "comparacao")}>
+                    <select value={modo} onChange={(e) => setModo(e.target.value as "zoom" | "quatro" | "comparacao" | "historia")}>
                       <option value="zoom">Zoom e revelação</option>
                       <option value="quatro">4 imagens com dicas</option>
                       <option value="comparacao">Comparação</option>
+                      <option value="historia">Short narrado (imagens/vídeos)</option>
                     </select>
                   </label>
-                  {modo !== "comparacao" && <>
+                  {modo !== "comparacao" && modo !== "historia" && <>
                     <label>Animes<input type="number" min={1} max={100} value={n} onChange={(e) => setN(Number(e.target.value))} /></label>
                     {modo === "zoom" && <label>Cortes de zoom<input type="number" min={1} max={6} value={cortes} onChange={(e) => setCortes(Number(e.target.value))} /></label>}
                     <label>Seed (opcional)<input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="aleatória" /></label>
                   </>}
                 </div>
-                {modo !== "comparacao" && <>
+                {modo !== "comparacao" && modo !== "historia" && <>
                   <label className="check"><input type="checkbox" checked={render} onChange={(e) => setRender(e.target.checked)} /> Renderizar o vídeo ao terminar</label>
                   <label className="check"><input type="checkbox" checked={musica} onChange={(e) => setMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
                   <div className="form-footer">
@@ -528,6 +617,90 @@ export default function Page() {
                     <p className="helper">A voz é gerada cena por cena e o Remotion renderiza o MP4 automaticamente. O resultado aparece em Saídas e o andamento em Produção.</p>
                   </div>
                 </div>}
+              </div>
+            </section>
+          )}
+
+          {modo === "historia" && (
+            <section className="composer comparison-composer" id="historia" style={{ marginTop: 14 }}>
+              <div className="section-head">
+                <div><h2>Short narrado (imagens e vídeos)</h2><p>Imagens em tela cheia com zoom/pan contínuo, pequenos vídeos e legenda amarela estilizada no centro.</p></div>
+                <span className="step-label">9:16 · StoryShort</span>
+              </div>
+              <div className="form-body comparison-form">
+                <div className="fields">
+                  <label>Tema / Título do Short
+                    <input type="text" value={histTitulo} onChange={(e) => setHistTitulo(e.target.value)} placeholder="Ex.: Por que Kira nunca será capitão" />
+                  </label>
+                  <label>Voz da narração
+                    <select value={histVoz} onChange={(e) => setHistVoz(e.target.value as "leo" | "antonio" | "andrew")}>
+                      <option value="leo">Speko · Leo (xAI · 1.08x ágil)</option>
+                      <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
+                      <option value="andrew">Edge TTS · Andrew Multilingual (Grátis)</option>
+                    </select>
+                  </label>
+                </div>
+                <label>Contexto adicional (opcional para a IA)
+                  <textarea value={histContexto} onChange={(e) => setHistContexto(e.target.value)} rows={2} placeholder="Pontos principais que você quer abordar no vídeo." />
+                </label>
+                <label className="check"><input type="checkbox" checked={histMusica} onChange={(e) => setHistMusica(e.target.checked)} /> Música de fundo ({estado.musicas} faixa(s) disponível(is))</label>
+                <div className="comparison-actions">
+                  <button className="primary" type="button" onClick={gerarRoteiroHistoria} disabled={histLoading || !histTitulo.trim()}>
+                    {histLoading ? "Gerando roteiro…" : "Gerar roteiro com IA"}
+                  </button>
+                  <button className="secondary" type="button" onClick={() => setHistCenas((a) => [...a, { speech: "", media: null, motion: "auto" }])} disabled={histCenas.length >= 14}>
+                    + Adicionar cena
+                  </button>
+                </div>
+                {histMsg && <p className="config-note" role="status">{histMsg}</p>}
+                <div className="comparison-scenes">
+                  <div className="comparison-scenes-heading"><h3>Cenas ({histCenas.length})</h3><span>Envie imagem ou vídeo em cada cena</span></div>
+                  {histCenas.map((cena, index) => (
+                    <div className="comparison-scene" key={index}>
+                      <div className="comparison-scene-title">
+                        <strong>Cena {index + 1}</strong>
+                        {histCenas.length > 2 && (
+                          <button type="button" className="text-danger" onClick={() => setHistCenas((a) => a.filter((_, i) => i !== index))}>Remover</button>
+                        )}
+                      </div>
+                      <div className="fields">
+                        <label>Mídia (imagem ou vídeo)
+                          <input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" disabled={histUploadIndex !== null} onChange={(e) => enviaMidiaHistoria(index, e.target.files?.[0])} />
+                          {cena.media && <small className="helper">{cena.media.nome} ({cena.media.tipo})</small>}
+                        </label>
+                        <label>Movimento na imagem
+                          <select value={cena.motion} onChange={(e) => setHistCenas((a) => a.map((c, i) => i === index ? { ...c, motion: e.target.value as StoryCena["motion"] } : c))}>
+                            <option value="auto">Automático (alternado)</option>
+                            <option value="zoom-in">Zoom In (aproximar)</option>
+                            <option value="zoom-out">Zoom Out (afastar)</option>
+                            <option value="pan-left">Pan Esquerda</option>
+                            <option value="pan-right">Pan Direita</option>
+                          </select>
+                        </label>
+                      </div>
+                      {index === 0 && (
+                        <div className="fields">
+                          <label>Gancho topo (opcional, laranja)
+                            <input type="text" value={cena.hookTop ?? ""} onChange={(e) => setHistCenas((a) => a.map((c, i) => i === index ? { ...c, hookTop: e.target.value } : c))} placeholder="Ex.: NUNCA VAI" />
+                          </label>
+                          <label>Gancho base (opcional, branco)
+                            <input type="text" value={cena.hookBottom ?? ""} onChange={(e) => setHistCenas((a) => a.map((c, i) => i === index ? { ...c, hookBottom: e.target.value } : c))} placeholder="Ex.: SER CAPITÃO" />
+                          </label>
+                        </div>
+                      )}
+                      <label>Texto narrado
+                        <textarea value={cena.speech} onChange={(e) => setHistCenas((a) => a.map((c, i) => i === index ? { ...c, speech: e.target.value } : c))} rows={2} placeholder="Fala desta cena..." />
+                      </label>
+                    </div>
+                  ))}
+                  <div className="comparison-render">
+                    <div className="actions">
+                      <button type="button" className="primary" onClick={renderizarHistoria} disabled={histRenderLoading || rodando}>
+                        {histRenderLoading ? "Iniciando…" : rodando ? "Outra tarefa está em andamento" : "Gerar voz e renderizar Short"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
           )}
