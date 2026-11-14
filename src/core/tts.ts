@@ -219,13 +219,23 @@ async function geraEdge(
  * Sintetiza uma fala usando a voz escolhida (com pronúncia fonética aplicada)
  * e retorna o arquivo salvo, a duração efetiva e timestamps de palavras quando disponíveis.
  */
+function escapeXml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 async function geraGoogleChirp3(
-  spokenText: string,
+  originalText: string,
   audioDir: string,
   baseName: string,
   voiceName: string,
 ): Promise<{ fileName: string; durationSec: number }> {
   const token = await getGoogleAccessToken();
+  const ssml = `<speak><prosody pitch="+2st">${escapeXml(originalText)}</prosody></speak>`;
   const res = await fetch(GOOGLE_TTS_URL, {
     method: "POST",
     headers: {
@@ -233,7 +243,7 @@ async function geraGoogleChirp3(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
-      input: { text: spokenText },
+      input: { ssml },
       voice: { languageCode: "pt-BR", name: voiceName },
       audioConfig: { audioEncoding: "MP3", speakingRate: 1.08 },
     }),
@@ -259,12 +269,12 @@ export async function sintetizaFala(
   baseName: string,
   requestedVoice: TtsVoice = "leo",
 ): Promise<{ fileName: string; durationSec: number; audioRate: number; words?: TtsWord[] }> {
-  const spoken = aplicaPronuncia(originalSpeech);
-
   if (requestedVoice === "puck" || requestedVoice === "fenrir") {
-    const res = await geraGoogleChirp3(spoken, audioDir, baseName, GOOGLE_VOICES[requestedVoice]);
+    const res = await geraGoogleChirp3(originalSpeech, audioDir, baseName, GOOGLE_VOICES[requestedVoice]);
     return { fileName: res.fileName, durationSec: res.durationSec, audioRate: 1 };
   }
+
+  const spoken = aplicaPronuncia(originalSpeech);
 
   const spekoKey = getSpekoApiKey();
   const useSpeko = requestedVoice === "leo" && Boolean(spekoKey);

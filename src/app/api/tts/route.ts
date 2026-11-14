@@ -78,6 +78,13 @@ export async function POST(req: Request) {
 
   if (voice === "puck" || voice === "fenrir") {
     const googleVoiceName = voice === "puck" ? "pt-BR-Chirp3-HD-Puck" : "pt-BR-Chirp3-HD-Fenrir";
+    const escaped = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
+    const ssml = `<speak><prosody pitch="+2st">${escaped}</prosody></speak>`;
     try {
       const token = await getGoogleAccessToken();
       const upstream = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize", {
@@ -87,7 +94,7 @@ export async function POST(req: Request) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          input: { text: spokenText },
+          input: { ssml },
           voice: { languageCode: "pt-BR", name: googleVoiceName },
           audioConfig: { audioEncoding: "MP3", speakingRate: 1.08 },
         }),
