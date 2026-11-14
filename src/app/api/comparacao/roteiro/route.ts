@@ -53,11 +53,11 @@ export async function POST(req: Request) {
       `Contexto do quadro direito: ${rightContext || "Não informado; não deduza fatos apenas pela imagem."}`,
       "",
       "Crie um roteiro de comparação para um vídeo vertical de curiosidades e explicações sobre anime, em português brasileiro.",
-      "REFERÊNCIA DE ESTILO: narração de vídeo-ensaio curto de anime, dinâmica e informativa. O narrador explica os conceitos com substância, como alguém que conhece a obra, em vez de apenas anunciar o que aparece na tela.",
-      "ESTRUTURA: produza de 8 a 10 cenas, com progressão narrativa. Comece com um gancho específico que desperte curiosidade; contextualize a comparação; explique o primeiro conceito em profundidade; explique o segundo com o mesmo cuidado; faça uma comparação direta; esclareça uma nuance, limitação ou equívoco comum quando relevante; conclua com uma síntese e uma pergunta natural.",
-      "CONTEÚDO: desenvolva origem, funcionamento, características, condições de uso, vantagens, limitações, consequências e exemplos relevantes, mas somente quando forem pertinentes ao tema e houver base factual. Escolha os detalhes que realmente ajudam a entender a diferença; não transforme o roteiro numa lista mecânica.",
-      "PROFUNDIDADE: mire aproximadamente 220 a 300 palavras de narração no total. A maioria das cenas deve ter de 25 a 45 palavras; abertura e encerramento podem ser mais curtos. Cada cena deve acrescentar informação nova. Evite frases vagas, repetição, enchimento e conclusões óbvias.",
-      "RITMO: escreva falas naturais para voz em off, com frases de tamanhos variados e transições entre ideias. Não use tópicos, títulos falados, instruções de câmera, marcações de palco, emojis ou chamadas artificiais como 'você não vai acreditar'.",
+      "REFERÊNCIA DE ESTILO: narração de vídeo curto (Shorts/TikTok) de anime, com linguagem jovem, direta e envolvente — como um criador que domina a obra conversando rápido com o público, sem formalidade excessiva.",
+      "ESTRUTURA: produza de 6 a 8 cenas, com ritmo ágil e progressão clara. Comece com um gancho curto que prenda atenção; explique o primeiro conceito de forma direta; explique o segundo; faça uma comparação objetiva; destaque um detalhe ou diferença-chave e feche com uma conclusão rápida ou pergunta natural.",
+      "CONTEÚDO: foque apenas no que mais diferencia os dois lados (funcionamento, vantagem, limitação ou consequência real na obra), quando houver base factual. Não enrole nem faça lista mecânica.",
+      "PROFUNDIDADE E TAMANHO: seja sucinto! Mire de 130 a 180 palavras de narração no total (vídeo rápido de ~45 a 55 segundos). Cada cena deve ter de 15 a 26 palavras; abertura e fechamento podem ser ainda mais curtos. Corte qualquer enchimento.",
+      "RITMO: escreva falas naturais e faladas (nada de texto engessado ou acadêmico), com frases curtas e diretas. Não use tópicos, títulos falados, instruções de câmera, marcações de palco, emojis ou clichês como 'você não vai acreditar'.",
       "PRECISÃO: não invente fatos, nomes, feitos, relações ou classificações. Não trate interpretação de fã como cânone. Se uma informação for controversa ou não estiver suficientemente estabelecida, omita-a ou formule a ressalva com clareza. A imagem serve para reconhecer o conteúdo visual, não para comprovar fatos da história.",
       "FOCO VISUAL: use active='left' quando a fala explicar o quadro esquerdo, active='right' quando explicar o direito e active='none' quando comparar ou contextualizar os dois. Alterne o foco de forma coerente, sem deixar todos os quadros ativos sem motivo.",
       "EXPRESSÃO: use 'surprise' apenas em uma revelação genuína e 'doubt' quando a fala levantar uma dúvida ou pergunta; caso contrário use 'neutral'.",
@@ -75,8 +75,8 @@ export async function POST(req: Request) {
       title: { type: "string" },
       scenes: {
         type: "array",
-        minItems: 8,
-        maxItems: 10,
+        minItems: 6,
+        maxItems: 8,
         items: {
           type: "object",
           additionalProperties: false,
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
 
   try {
     const parsed = JSON.parse(outputText) as { title: string; scenes: Array<{ label: string; active: Side; speech: string; expression: Expression }> };
-    if (!Array.isArray(parsed.scenes) || parsed.scenes.length < 8 || parsed.scenes.length > 10) throw new Error("invalid scenes");
+    if (!Array.isArray(parsed.scenes) || parsed.scenes.length < 6 || parsed.scenes.length > 8) throw new Error("invalid scenes");
     return Response.json(parsed);
   } catch {
     return Response.json({ erro: "A resposta da IA veio em um formato inesperado. Tente novamente." }, { status: 502 });

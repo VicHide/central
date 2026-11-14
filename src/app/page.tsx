@@ -101,6 +101,7 @@ export default function Page() {
   const [compMediaDir, setCompMediaDir] = useState<ComparacaoMedia | null>(null);
   const [compUpload, setCompUpload] = useState<"left" | "right" | null>(null);
   const [compCenas, setCompCenas] = useState<ComparacaoCena[]>([]);
+  const [compVoz, setCompVoz] = useState<"leo" | "fabio" | "antonio">("leo");
   const [compMsg, setCompMsg] = useState("");
   const [compLoading, setCompLoading] = useState(false);
   const [compRenderLoading, setCompRenderLoading] = useState(false);
@@ -333,6 +334,7 @@ export default function Page() {
         body: JSON.stringify({
           title: compTitulo, leftLabel: compLabelEsq, rightLabel: compLabelDir,
           leftMedia: compMediaEsq?.arquivo, rightMedia: compMediaDir?.arquivo,
+          voice: compVoz,
           scenes: compCenas,
         }),
       });
@@ -508,7 +510,16 @@ export default function Page() {
                     </label>
                   </div>)}
                   <div className="comparison-render">
-                    <p className="helper"><strong>Voz selecionada:</strong> Leo · Português (Brasil) · Speko (xAI), com fallback automático para Edge TTS se `SPEKO_API_KEY` não estiver configurada.</p>
+                    <div className="fields" style={{ marginBottom: 12 }}>
+                      <label>Voz da narração
+                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value as "leo" | "fabio" | "antonio")}>
+                          <option value="leo">Speko · Leo (xAI · 1.08x ágil)</option>
+                          <option value="fabio">Edge TTS · Fabio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
+                          <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +4Hz)</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p className="helper">Você pode testar o Leo e o Fabio antes na aba Teste de voz (/voz).</p>
                     <div className="actions">
                       <button type="button" className="primary" onClick={renderizarComparacao} disabled={compRenderLoading || rodando}>
                         {compRenderLoading ? "Iniciando…" : rodando ? "Outra tarefa está em andamento" : "Gerar voz e renderizar vídeo"}

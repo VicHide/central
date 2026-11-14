@@ -1,20 +1,57 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const execFileAsync = promisify(execFile);
 const MAX_CHARS = 5000;
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 
-export async function POST(req: Request) {
-  const apiKey = process.env.SPEKO_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      { erro: "SPEKO_API_KEY não está configurada no arquivo .env.local." },
-      { status: 503 }
-    );
-  }
+async function geraEdgeFabio(text: string): Promise<Buffer> {
+  const destino = path.join(os.tmpdir(), `edge-fabio-${randomUUID()}.mp3`);
+  const comandos = process.platform === "win32"
+    ? [{ bin: "py", prefix: ["-3"] }, { bin: "python", prefix: [] }]
+    : [{ bin: "python3", prefix: [] }, { bin: "python", prefix: [] }];
+  let ultimoErro: unknown;
 
+  try {
+    for (const comando of comandos) {
+      try {
+        await execFileAsync(comando.bin, [
+          ...comando.prefix,
+          "-m", "edge_tts",
+          "--voice", "pt-BR-FabioNeural",
+          "--rate", "+16%",
+          "--pitch", "+6Hz",
+          "--text", text,
+          "--write-media", destino,
+        ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+        if (fs.existsSync(destino) && fs.statSync(destino).size > 0) {
+          return fs.readFileSync(destino);
+        }
+        throw new Error("O Edge TTS não gerou o arquivo de áudio.");
+      } catch (error) {
+        ultimoErro = error;
+        if (error && typeof error === "object" && "code" in error && (error as { code?: string }).code !== "ENOENT") {
+          throw error;
+        }
+      }
+    }
+    throw ultimoErro instanceof Error ? ultimoErro : new Error("Edge TTS não encontrado. Instale com 'py -m pip install -r requirements-tts.txt'.");
+  } finally {
+    if (fs.existsSync(destino)) fs.unlinkSync(destino);
+  }
+}
+
+export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
+  const voice = body?.voice === "fabio" ? "fabio" : "leo";
 
   if (!text) {
     return Response.json({ erro: "Digite um texto para gerar o áudio." }, { status: 400 });
@@ -23,6 +60,32 @@ export async function POST(req: Request) {
     return Response.json(
       { erro: `O texto deve ter no máximo ${MAX_CHARS.toLocaleString("pt-BR")} caracteres por teste.` },
       { status: 413 }
+    );
+  }
+
+  if (voice === "fabio") {
+    try {
+      const mp3 = await geraEdgeFabio(text);
+      return new Response(new Uint8Array(mp3), {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "audio/mpeg",
+          "X-TTS-Provider": "edge-tts",
+          "X-TTS-Model": "pt-BR-FabioNeural",
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao gerar áudio com Edge TTS (Fabio).";
+      return Response.json({ erro: message }, { status: 500 });
+    }
+  }
+
+  const apiKey = process.env.SPEKO_API_KEY;
+  if (!apiKey) {
+    return Response.json(
+      { erro: "SPEKO_API_KEY não está configurada no arquivo .env.local." },
+      { status: 503 }
     );
   }
 

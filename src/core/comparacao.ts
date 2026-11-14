@@ -23,13 +23,17 @@ type Payload = {
   rightLabel: string;
   leftMedia: string | null;
   rightMedia: string | null;
+  voice?: "leo" | "fabio" | "antonio";
   scenes: SceneInput[];
 };
 
 const RAIZ = process.cwd();
 const execFileAsync = promisify(execFile);
-const VOZ = "pt-BR-AntonioNeural";
-const RATE = "+12%";
+const SPEKO_RATE = 1.08;
+const EDGE_VOICES = {
+  fabio: { voice: "pt-BR-FabioNeural", rate: "+16%", pitch: "+6Hz" },
+  antonio: { voice: "pt-BR-AntonioNeural", rate: "+16%", pitch: "+4Hz" },
+} as const;
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
 const arg = (name: string) => {
@@ -109,8 +113,8 @@ function safeMedia(relative: string | null | undefined) {
 const EDGE_TTS_SCRIPT = [
   "import asyncio, json, sys, edge_tts",
   "async def main():",
-  "    text, voice, rate, audio_path, words_path = sys.argv[1:6]",
-  "    comm = edge_tts.Communicate(text, voice, rate=rate)",
+  "    text, voice, rate, pitch, audio_path, words_path = sys.argv[1:7]",
+  "    comm = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)",
   "    words = []",
   "    with open(audio_path, 'wb') as f:",
   "        async for chunk in comm.stream():",
@@ -174,7 +178,11 @@ async function geraAudioSpeko(
   return { fileName, durationSec };
 }
 
-async function geraAudio(text: string, destino: string): Promise<WordTiming[] | undefined> {
+async function geraAudio(
+  text: string,
+  destino: string,
+  edgeCfg: { voice: string; rate: string; pitch: string },
+): Promise<WordTiming[] | undefined> {
   const comandos = process.platform === "win32"
     ? [{ bin: "py", prefix: ["-3"] }, { bin: "python", prefix: [] }]
     : [{ bin: "python3", prefix: [] }, { bin: "python", prefix: [] }];
@@ -186,7 +194,7 @@ async function geraAudio(text: string, destino: string): Promise<WordTiming[] | 
       await execFileAsync(comando.bin, [
         ...comando.prefix,
         "-c", EDGE_TTS_SCRIPT,
-        text, VOZ, RATE, destino, wordsPath,
+        text, edgeCfg.voice, edgeCfg.rate, edgeCfg.pitch, destino, wordsPath,
       ], { windowsHide: true, timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
       if (fs.existsSync(destino) && fs.statSync(destino).size > 0) {
         if (fs.existsSync(wordsPath)) {
@@ -239,26 +247,36 @@ async function main() {
 
   const videoCursor = new Map<string, number>();
   const spekoKey = getSpekoApiKey();
+  const requestedVoice = payload.voice ?? "leo";
+  const useSpeko = requestedVoice === "leo" && Boolean(spekoKey);
+  const edgeCfg = requestedVoice === "antonio" ? EDGE_VOICES.antonio : EDGE_VOICES.fabio;
 
   for (const [index, scene] of payload.scenes.entries()) {
-    evento({ etapa: spekoKey ? "Gerando narração (Speko · Leo)" : "Gerando narração (Edge TTS)", pct: Math.round(((index + 1) / payload.scenes.length) * 9), detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length });
+    evento({
+      etapa: useSpeko ? "Gerando narração (Speko · Leo)" : `Gerando narração (${edgeCfg.voice})`,
+      pct: Math.round(((index + 1) / payload.scenes.length) * 9),
+      detalhe: "Cena " + (index + 1) + "/" + payload.scenes.length,
+    });
     const baseName = id + "-" + String(index + 1).padStart(2, "0");
     let audioFileName = `${baseName}.mp3`;
     let words: WordTiming[] | undefined;
     let parsedDuration = 0;
+    let audioRate = 1;
 
-    if (spekoKey) {
+    if (useSpeko) {
       const res = await geraAudioSpeko(scene.speech, audioDir, baseName, spekoKey);
       audioFileName = res.fileName;
       parsedDuration = res.durationSec;
+      audioRate = SPEKO_RATE;
     } else {
       const audioPath = path.join(audioDir, audioFileName);
-      words = await geraAudio(scene.speech, audioPath);
+      words = await geraAudio(scene.speech, audioPath, edgeCfg);
       parsedDuration = mp3Duration(fs.readFileSync(audioPath));
     }
 
-    const fallbackDuration = Math.max(2, scene.speech.trim().split(/\s+/).length / 2.5);
-    const durationInFrames = Math.max(30, Math.ceil((parsedDuration || fallbackDuration) * fps) + 4);
+    const fallbackDuration = Math.max(1.8, scene.speech.trim().split(/\s+/).length / 2.8);
+    const effectiveDuration = (parsedDuration || fallbackDuration) / audioRate;
+    const durationInFrames = Math.max(24, Math.ceil(effectiveDuration * fps) + 1);
 
     const sceneLeftMedia = scene.leftMedia ? safeMedia(scene.leftMedia) : defaultLeftMedia;
     const sceneRightMedia = scene.rightMedia ? safeMedia(scene.rightMedia) : defaultRightMedia;
@@ -294,6 +312,7 @@ async function main() {
       leftPauseFrame: leftCursor,
       rightPauseFrame: rightCursor,
       audio: "comparacoes/audio/" + audioFileName,
+      audioRate,
     });
   }
 

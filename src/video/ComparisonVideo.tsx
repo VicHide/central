@@ -34,6 +34,7 @@ export type ComparisonSegment = {
   speech: string;
   expression?: ComparisonExpression;
   audio?: string;
+  audioRate?: number;
   words?: WordTiming[];
   leftLabel?: string;
   rightLabel?: string;
@@ -373,7 +374,7 @@ const Scene: React.FC<{
         />
       </div>
 
-      {segment.audio && <Audio src={staticFile(segment.audio)} />}
+      {segment.audio && <Audio src={staticFile(segment.audio)} playbackRate={segment.audioRate ?? 1} />}
     </AbsoluteFill>
   );
 };

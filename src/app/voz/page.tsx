@@ -7,6 +7,7 @@ const TEXTO_TESTE = "Você acha que conhece esse personagem? Então espera até 
 
 export default function VozPage() {
   const [text, setText] = useState(TEXTO_TESTE);
+  const [voice, setVoice] = useState<"leo" | "fabio">("fabio");
   const [audioUrl, setAudioUrl] = useState("");
   const [contentType, setContentType] = useState("");
   const [message, setMessage] = useState("");
@@ -28,7 +29,7 @@ export default function VozPage() {
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice }),
       });
 
       if (!response.ok) {
@@ -63,24 +64,32 @@ export default function VozPage() {
         <div>
           <Link className="frames-back" href="/">← Voltar à central</Link>
           <p className="frames-kicker">FERRAMENTAS DE ÁUDIO</p>
-          <h1>Teste de voz · Leo</h1>
+          <h1>Teste de voz · Leo & Fabio</h1>
           <p className="frames-lead">
-            Gere uma amostra com a voz masculina da xAI e avalie o resultado antes de integrar a narração ao fluxo de vídeos.
+            Compare a voz paga Leo (xAI via Speko) com a opção gratuita Fabio (Edge TTS ajustada para soar mais jovem e ágil).
           </p>
         </div>
-        <span className="frames-status completed">xAI · TTS</span>
+        <span className="frames-status completed">{voice === "fabio" ? "Edge TTS · Grátis" : "xAI · Speko"}</span>
       </header>
 
       <section className="composer" style={{ maxWidth: 900 }}>
         <div className="section-head">
           <div>
             <h2>Texto da amostra</h2>
-            <p>O mesmo texto pode ser reutilizado para comparar futuras vozes.</p>
+            <p>O mesmo texto pode ser reutilizado para comparar as vozes.</p>
           </div>
-          <span className="step-label">Leo · português</span>
+          <span className="step-label">{voice === "fabio" ? "Fabio · tom jovem" : "Leo · português"}</span>
         </div>
 
         <div className="form-body" style={{ marginTop: 20 }}>
+          <div className="fields" style={{ marginBottom: 14 }}>
+            <label>Voz
+              <select value={voice} onChange={(e) => setVoice(e.target.value as "leo" | "fabio")}>
+                <option value="fabio">Edge TTS · Fabio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
+                <option value="leo">Speko · Leo (xAI · consome créditos)</option>
+              </select>
+            </label>
+          </div>
           <label htmlFor="tts-text">Texto para narrar</label>
           <textarea
             id="tts-text"
@@ -104,7 +113,9 @@ export default function VozPage() {
             }}
           />
           <div className="form-footer">
-            <p className="helper">{text.length.toLocaleString("pt-BR")}/5.000 caracteres · Provedor fixado: xAI · Voz: leo</p>
+            <p className="helper">
+              {text.length.toLocaleString("pt-BR")}/5.000 caracteres · {voice === "fabio" ? "Edge TTS · pt-BR-FabioNeural (gratuito)" : "Speko · xAI · leo"}
+            </p>
             <button className="primary" type="button" onClick={generate} disabled={loading || !text.trim()}>
               {loading ? "Gerando áudio…" : audioUrl ? "Gerar novamente" : "Gerar prévia"}
             </button>
@@ -119,7 +130,7 @@ export default function VozPage() {
                 Seu navegador não suporta reprodução de áudio.
               </audio>
               <div className="actions" style={{ marginTop: 13 }}>
-                <a className="secondary" href={audioUrl} download={`leo-teste.${extension}`} style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+                <a className="secondary" href={audioUrl} download={`${voice}-teste.${extension}`} style={{ display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
                   Baixar áudio
                 </a>
               </div>

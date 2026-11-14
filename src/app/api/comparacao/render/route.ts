@@ -33,12 +33,13 @@ export async function POST(req: Request) {
   const rightLabel = typeof body.rightLabel === "string" ? body.rightLabel.trim().slice(0, 80) : "";
   const leftMedia = validMedia(body.leftMedia);
   const rightMedia = validMedia(body.rightMedia);
+  const voice = body.voice === "fabio" || body.voice === "antonio" || body.voice === "leo" ? body.voice : "leo";
   const scenes = Array.isArray(body.scenes) ? body.scenes as SceneInput[] : [];
 
   if (!title || !leftLabel || !rightLabel) {
     return Response.json({ erro: "Informe o tema e os nomes dos quadros." }, { status: 400 });
   }
-  if (scenes.length < 8 || scenes.length > 10 || scenes.some((scene) =>
+  if (scenes.length < 5 || scenes.length > 10 || scenes.some((scene) =>
     !scene || typeof scene.speech !== "string" || !scene.speech.trim() || scene.speech.length > 1800 ||
     !["left", "right", "none"].includes(scene.active) ||
     !["neutral", "doubt", "surprise"].includes(scene.expression)
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
   const dir = path.join(process.cwd(), "data", "comparacoes");
   fs.mkdirSync(dir, { recursive: true });
   const payload = {
-    id, title, leftLabel, rightLabel, leftMedia, rightMedia,
+    id, title, leftLabel, rightLabel, leftMedia, rightMedia, voice,
     scenes: scenes.map((scene) => ({
       label: String(scene.label ?? "").slice(0, 100),
       active: scene.active,
@@ -68,12 +69,19 @@ export async function POST(req: Request) {
 
   const totalWords = scenes.reduce((sum, scene) => sum + scene.speech.trim().split(/\s+/).length, 0);
   const estimatedSeconds = Math.max(10, Math.round(totalWords / 2.6));
+  const voiceLabel = voice === "fabio"
+    ? "Edge TTS · Fabio (Tom jovem)"
+    : voice === "antonio"
+      ? "Edge TTS · Antonio"
+      : process.env.SPEKO_API_KEY
+        ? "Speko · Leo (xAI)"
+        : "Edge TTS · Fabio (Tom jovem)";
   const job = iniciaJob("Comparação · " + title, ["tsx", "src/core/comparacao.ts", "--id", id], {
     n: scenes.length,
     render: true,
     duracaoSeg: estimatedSeconds,
     resumo: title,
-    preparo: process.env.SPEKO_API_KEY ? "Speko · Leo (xAI) · narração por cena" : "Edge TTS · Antonio · narração por cena",
+    preparo: `${voiceLabel} · narração por cena`,
   });
   return Response.json({ jobId: job.id, message: "Narração iniciada. O vídeo será renderizado automaticamente ao terminar." });
 }
