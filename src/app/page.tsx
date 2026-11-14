@@ -101,7 +101,7 @@ export default function Page() {
   const [compMediaDir, setCompMediaDir] = useState<ComparacaoMedia | null>(null);
   const [compUpload, setCompUpload] = useState<"left" | "right" | null>(null);
   const [compCenas, setCompCenas] = useState<ComparacaoCena[]>([]);
-  const [compVoz, setCompVoz] = useState<"leo" | "fabio" | "antonio">("leo");
+  const [compVoz, setCompVoz] = useState<"leo" | "antonio" | "andrew">("leo");
   const [compMsg, setCompMsg] = useState("");
   const [compLoading, setCompLoading] = useState(false);
   const [compRenderLoading, setCompRenderLoading] = useState(false);
@@ -512,14 +512,14 @@ export default function Page() {
                   <div className="comparison-render">
                     <div className="fields" style={{ marginBottom: 12 }}>
                       <label>Voz da narração
-                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value as "leo" | "fabio" | "antonio")}>
+                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value as "leo" | "antonio" | "andrew")}>
                           <option value="leo">Speko · Leo (xAI · 1.08x ágil)</option>
-                          <option value="fabio">Edge TTS · Fabio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
-                          <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +4Hz)</option>
+                          <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
+                          <option value="andrew">Edge TTS · Andrew Multilingual (Grátis · bom com nomes estrangeiros)</option>
                         </select>
                       </label>
                     </div>
-                    <p className="helper">Você pode testar o Leo e o Fabio antes na aba Teste de voz (/voz).</p>
+                    <p className="helper">Você pode testar o Leo, o Antonio e o Andrew antes na aba Teste de voz (/voz).</p>
                     <div className="actions">
                       <button type="button" className="primary" onClick={renderizarComparacao} disabled={compRenderLoading || rodando}>
                         {compRenderLoading ? "Iniciando…" : rodando ? "Outra tarefa está em andamento" : "Gerar voz e renderizar vídeo"}

@@ -23,7 +23,7 @@ type Payload = {
   rightLabel: string;
   leftMedia: string | null;
   rightMedia: string | null;
-  voice?: "leo" | "fabio" | "antonio";
+  voice?: "leo" | "antonio" | "andrew";
   scenes: SceneInput[];
 };
 
@@ -31,8 +31,8 @@ const RAIZ = process.cwd();
 const execFileAsync = promisify(execFile);
 const SPEKO_RATE = 1.08;
 const EDGE_VOICES = {
-  fabio: { voice: "pt-BR-FabioNeural", rate: "+16%", pitch: "+6Hz" },
-  antonio: { voice: "pt-BR-AntonioNeural", rate: "+16%", pitch: "+4Hz" },
+  antonio: { voice: "pt-BR-AntonioNeural", rate: "+16%", pitch: "+6Hz" },
+  andrew: { voice: "en-US-AndrewMultilingualNeural", rate: "+14%", pitch: "+2Hz" },
 } as const;
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 const evento = (o: { etapa: string; pct: number; eta?: number; detalhe?: string }) => console.log("@@" + JSON.stringify(o));
@@ -249,7 +249,7 @@ async function main() {
   const spekoKey = getSpekoApiKey();
   const requestedVoice = payload.voice ?? "leo";
   const useSpeko = requestedVoice === "leo" && Boolean(spekoKey);
-  const edgeCfg = requestedVoice === "antonio" ? EDGE_VOICES.antonio : EDGE_VOICES.fabio;
+  const edgeCfg = requestedVoice === "andrew" ? EDGE_VOICES.andrew : EDGE_VOICES.antonio;
 
   for (const [index, scene] of payload.scenes.entries()) {
     evento({

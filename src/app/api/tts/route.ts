@@ -12,8 +12,14 @@ const execFileAsync = promisify(execFile);
 const MAX_CHARS = 5000;
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 
-async function geraEdgeFabio(text: string): Promise<Buffer> {
-  const destino = path.join(os.tmpdir(), `edge-fabio-${randomUUID()}.mp3`);
+const EDGE_VOICES = {
+  antonio: { id: "pt-BR-AntonioNeural", rate: "+16%", pitch: "+6Hz" },
+  andrew: { id: "en-US-AndrewMultilingualNeural", rate: "+14%", pitch: "+2Hz" },
+} as const;
+
+async function geraEdgeVoz(text: string, key: keyof typeof EDGE_VOICES): Promise<Buffer> {
+  const cfg = EDGE_VOICES[key];
+  const destino = path.join(os.tmpdir(), `edge-${key}-${randomUUID()}.mp3`);
   const comandos = process.platform === "win32"
     ? [{ bin: "py", prefix: ["-3"] }, { bin: "python", prefix: [] }]
     : [{ bin: "python3", prefix: [] }, { bin: "python", prefix: [] }];
@@ -25,9 +31,9 @@ async function geraEdgeFabio(text: string): Promise<Buffer> {
         await execFileAsync(comando.bin, [
           ...comando.prefix,
           "-m", "edge_tts",
-          "--voice", "pt-BR-FabioNeural",
-          "--rate", "+16%",
-          "--pitch", "+6Hz",
+          "--voice", cfg.id,
+          `--rate=${cfg.rate}`,
+          `--pitch=${cfg.pitch}`,
           "--text", text,
           "--write-media", destino,
         ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
@@ -51,7 +57,8 @@ async function geraEdgeFabio(text: string): Promise<Buffer> {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
-  const voice = body?.voice === "fabio" ? "fabio" : "leo";
+  const voice: "leo" | "antonio" | "andrew" =
+    body?.voice === "antonio" || body?.voice === "andrew" ? body.voice : "leo";
 
   if (!text) {
     return Response.json({ erro: "Digite um texto para gerar o áudio." }, { status: 400 });
@@ -63,20 +70,20 @@ export async function POST(req: Request) {
     );
   }
 
-  if (voice === "fabio") {
+  if (voice === "antonio" || voice === "andrew") {
     try {
-      const mp3 = await geraEdgeFabio(text);
+      const mp3 = await geraEdgeVoz(text, voice);
       return new Response(new Uint8Array(mp3), {
         status: 200,
         headers: {
           "Cache-Control": "no-store",
           "Content-Type": "audio/mpeg",
           "X-TTS-Provider": "edge-tts",
-          "X-TTS-Model": "pt-BR-FabioNeural",
+          "X-TTS-Model": EDGE_VOICES[voice].id,
         },
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao gerar áudio com Edge TTS (Fabio).";
+      const message = error instanceof Error ? error.message : "Falha ao gerar áudio com Edge TTS.";
       return Response.json({ erro: message }, { status: 500 });
     }
   }

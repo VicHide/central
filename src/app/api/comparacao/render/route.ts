@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   const rightLabel = typeof body.rightLabel === "string" ? body.rightLabel.trim().slice(0, 80) : "";
   const leftMedia = validMedia(body.leftMedia);
   const rightMedia = validMedia(body.rightMedia);
-  const voice = body.voice === "fabio" || body.voice === "antonio" || body.voice === "leo" ? body.voice : "leo";
+  const voice = body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
   const scenes = Array.isArray(body.scenes) ? body.scenes as SceneInput[] : [];
 
   if (!title || !leftLabel || !rightLabel) {
@@ -69,13 +69,13 @@ export async function POST(req: Request) {
 
   const totalWords = scenes.reduce((sum, scene) => sum + scene.speech.trim().split(/\s+/).length, 0);
   const estimatedSeconds = Math.max(10, Math.round(totalWords / 2.6));
-  const voiceLabel = voice === "fabio"
-    ? "Edge TTS · Fabio (Tom jovem)"
-    : voice === "antonio"
-      ? "Edge TTS · Antonio"
+  const voiceLabel = voice === "antonio"
+    ? "Edge TTS · Antonio (Tom jovem)"
+    : voice === "andrew"
+      ? "Edge TTS · Andrew Multilingual"
       : process.env.SPEKO_API_KEY
         ? "Speko · Leo (xAI)"
-        : "Edge TTS · Fabio (Tom jovem)";
+        : "Edge TTS · Antonio (Tom jovem)";
   const job = iniciaJob("Comparação · " + title, ["tsx", "src/core/comparacao.ts", "--id", id], {
     n: scenes.length,
     render: true,
