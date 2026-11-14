@@ -3,6 +3,7 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { aplicaPronuncia } from "./pronuncia";
+import { getGoogleAccessToken } from "./googleAuth";
 
 const execFileAsync = promisify(execFile);
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
@@ -223,11 +224,14 @@ async function geraGoogleChirp3(
   audioDir: string,
   baseName: string,
   voiceName: string,
-  apiKey: string,
 ): Promise<{ fileName: string; durationSec: number }> {
-  const res = await fetch(`${GOOGLE_TTS_URL}?key=${encodeURIComponent(apiKey)}`, {
+  const token = await getGoogleAccessToken();
+  const res = await fetch(GOOGLE_TTS_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({
       input: { text: spokenText },
       voice: { languageCode: "pt-BR", name: voiceName },
@@ -258,11 +262,7 @@ export async function sintetizaFala(
   const spoken = aplicaPronuncia(originalSpeech);
 
   if (requestedVoice === "puck" || requestedVoice === "fenrir") {
-    const googleKey = getGoogleTtsApiKey();
-    if (!googleKey) {
-      throw new Error("GOOGLE_TTS_API_KEY não está configurada no arquivo .env.local.");
-    }
-    const res = await geraGoogleChirp3(spoken, audioDir, baseName, GOOGLE_VOICES[requestedVoice], googleKey);
+    const res = await geraGoogleChirp3(spoken, audioDir, baseName, GOOGLE_VOICES[requestedVoice]);
     return { fileName: res.fileName, durationSec: res.durationSec, audioRate: 1 };
   }
 

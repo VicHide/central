@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { aplicaPronuncia } from "@/core/pronuncia";
+import { getGoogleAccessToken } from "@/core/googleAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,18 +77,15 @@ export async function POST(req: Request) {
   const spokenText = aplicaPronuncia(text);
 
   if (voice === "puck" || voice === "fenrir") {
-    const googleKey = process.env.GOOGLE_TTS_API_KEY;
-    if (!googleKey) {
-      return Response.json(
-        { erro: "GOOGLE_TTS_API_KEY não está configurada no arquivo .env.local." },
-        { status: 503 }
-      );
-    }
     const googleVoiceName = voice === "puck" ? "pt-BR-Chirp3-HD-Puck" : "pt-BR-Chirp3-HD-Fenrir";
     try {
-      const upstream = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(googleKey)}`, {
+      const token = await getGoogleAccessToken();
+      const upstream = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           input: { text: spokenText },
           voice: { languageCode: "pt-BR", name: googleVoiceName },
