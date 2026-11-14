@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
-  const voice = body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
+  const voice = body.voice === "puck" || body.voice === "fenrir" || body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
   const useMusic = body.useMusic !== false;
   const scenes = Array.isArray(body.scenes) ? (body.scenes as SceneInput[]) : [];
 

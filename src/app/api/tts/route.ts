@@ -58,8 +58,10 @@ async function geraEdgeVoz(text: string, key: keyof typeof EDGE_VOICES): Promise
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
-  const voice: "leo" | "antonio" | "andrew" =
-    body?.voice === "antonio" || body?.voice === "andrew" ? body.voice : "leo";
+  const voice: "leo" | "puck" | "fenrir" | "antonio" | "andrew" =
+    body?.voice === "puck" || body?.voice === "fenrir" || body?.voice === "antonio" || body?.voice === "andrew"
+      ? body.voice
+      : "leo";
 
   if (!text) {
     return Response.json({ erro: "Digite um texto para gerar o áudio." }, { status: 400 });
@@ -72,6 +74,50 @@ export async function POST(req: Request) {
   }
 
   const spokenText = aplicaPronuncia(text);
+
+  if (voice === "puck" || voice === "fenrir") {
+    const googleKey = process.env.GOOGLE_TTS_API_KEY;
+    if (!googleKey) {
+      return Response.json(
+        { erro: "GOOGLE_TTS_API_KEY não está configurada no arquivo .env.local." },
+        { status: 503 }
+      );
+    }
+    const googleVoiceName = voice === "puck" ? "pt-BR-Chirp3-HD-Puck" : "pt-BR-Chirp3-HD-Fenrir";
+    try {
+      const upstream = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(googleKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: { text: spokenText },
+          voice: { languageCode: "pt-BR", name: googleVoiceName },
+          audioConfig: { audioEncoding: "MP3", speakingRate: 1.08 },
+        }),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text().catch(() => "");
+        return Response.json({ erro: `Google TTS erro ${upstream.status}: ${detail.slice(0, 200)}` }, { status: upstream.status });
+      }
+      const data = (await upstream.json()) as { audioContent?: string };
+      if (!data.audioContent) {
+        return Response.json({ erro: "O Google TTS não retornou áudio." }, { status: 502 });
+      }
+      const mp3 = Buffer.from(data.audioContent, "base64");
+      return new Response(new Uint8Array(mp3), {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "audio/mpeg",
+          "X-TTS-Provider": "google-cloud-tts",
+          "X-TTS-Model": googleVoiceName,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao gerar áudio no Google TTS.";
+      return Response.json({ erro: message }, { status: 502 });
+    }
+  }
 
   if (voice === "antonio" || voice === "andrew") {
     try {

@@ -6,15 +6,21 @@ import { aplicaPronuncia } from "./pronuncia";
 
 const execFileAsync = promisify(execFile);
 const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
+const GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 export const SPEKO_RATE = 1.08;
 
-export type TtsVoice = "leo" | "antonio" | "andrew";
+export type TtsVoice = "leo" | "puck" | "fenrir" | "antonio" | "andrew";
 
 export type TtsWord = {
   text: string;
   startMs: number;
   endMs: number;
 };
+
+const GOOGLE_VOICES = {
+  puck: "pt-BR-Chirp3-HD-Puck",
+  fenrir: "pt-BR-Chirp3-HD-Fenrir",
+} as const;
 
 const EDGE_VOICES = {
   antonio: { voice: "pt-BR-AntonioNeural", rate: "+16%", pitch: "+6Hz" },
@@ -45,6 +51,14 @@ export function getSpekoApiKey() {
   const envPath = path.join(process.cwd(), ".env.local");
   if (!fs.existsSync(envPath)) return "";
   const match = fs.readFileSync(envPath, "utf8").match(/^SPEKO_API_KEY=(.+)$/m);
+  return match ? match[1].trim().replace(/^["']|["']$/g, "") : "";
+}
+
+export function getGoogleTtsApiKey() {
+  if (process.env.GOOGLE_TTS_API_KEY) return process.env.GOOGLE_TTS_API_KEY;
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envPath)) return "";
+  const match = fs.readFileSync(envPath, "utf8").match(/^GOOGLE_TTS_API_KEY=(.+)$/m);
   return match ? match[1].trim().replace(/^["']|["']$/g, "") : "";
 }
 
@@ -204,6 +218,37 @@ async function geraEdge(
  * Sintetiza uma fala usando a voz escolhida (com pronúncia fonética aplicada)
  * e retorna o arquivo salvo, a duração efetiva e timestamps de palavras quando disponíveis.
  */
+async function geraGoogleChirp3(
+  spokenText: string,
+  audioDir: string,
+  baseName: string,
+  voiceName: string,
+  apiKey: string,
+): Promise<{ fileName: string; durationSec: number }> {
+  const res = await fetch(`${GOOGLE_TTS_URL}?key=${encodeURIComponent(apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      input: { text: spokenText },
+      voice: { languageCode: "pt-BR", name: voiceName },
+      audioConfig: { audioEncoding: "MP3", speakingRate: 1.08 },
+    }),
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Google Cloud TTS retornou erro ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const data = (await res.json()) as { audioContent?: string };
+  if (!data.audioContent) throw new Error("O Google Cloud TTS não retornou áudio.");
+  const mp3 = Buffer.from(data.audioContent, "base64");
+  const fileName = `${baseName}.mp3`;
+  fs.writeFileSync(path.join(audioDir, fileName), mp3);
+  return { fileName, durationSec: mp3Duration(mp3) };
+}
+
 export async function sintetizaFala(
   originalSpeech: string,
   audioDir: string,
@@ -211,6 +256,16 @@ export async function sintetizaFala(
   requestedVoice: TtsVoice = "leo",
 ): Promise<{ fileName: string; durationSec: number; audioRate: number; words?: TtsWord[] }> {
   const spoken = aplicaPronuncia(originalSpeech);
+
+  if (requestedVoice === "puck" || requestedVoice === "fenrir") {
+    const googleKey = getGoogleTtsApiKey();
+    if (!googleKey) {
+      throw new Error("GOOGLE_TTS_API_KEY não está configurada no arquivo .env.local.");
+    }
+    const res = await geraGoogleChirp3(spoken, audioDir, baseName, GOOGLE_VOICES[requestedVoice], googleKey);
+    return { fileName: res.fileName, durationSec: res.durationSec, audioRate: 1 };
+  }
+
   const spekoKey = getSpekoApiKey();
   const useSpeko = requestedVoice === "leo" && Boolean(spekoKey);
 

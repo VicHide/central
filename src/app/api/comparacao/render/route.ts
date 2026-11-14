@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   const rightLabel = typeof body.rightLabel === "string" ? body.rightLabel.trim().slice(0, 80) : "";
   const leftMedia = validMedia(body.leftMedia);
   const rightMedia = validMedia(body.rightMedia);
-  const voice = body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
+  const voice = body.voice === "puck" || body.voice === "fenrir" || body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
   const scenes = Array.isArray(body.scenes) ? body.scenes as SceneInput[] : [];
 
   if (!title || !leftLabel || !rightLabel) {

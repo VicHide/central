@@ -7,7 +7,7 @@ const TEXTO_TESTE = "Você acha que conhece esse personagem? Então espera até 
 
 export default function VozPage() {
   const [text, setText] = useState(TEXTO_TESTE);
-  const [voice, setVoice] = useState<"leo" | "antonio" | "andrew">("antonio");
+  const [voice, setVoice] = useState<"leo" | "puck" | "fenrir" | "antonio" | "andrew">("puck");
   const [audioUrl, setAudioUrl] = useState("");
   const [contentType, setContentType] = useState("");
   const [message, setMessage] = useState("");
@@ -64,12 +64,14 @@ export default function VozPage() {
         <div>
           <Link className="frames-back" href="/">← Voltar à central</Link>
           <p className="frames-kicker">FERRAMENTAS DE ÁUDIO</p>
-          <h1>Teste de voz · Leo, Antonio & Andrew</h1>
+          <h1>Teste de voz · Google Chirp 3, Leo & Edge</h1>
           <p className="frames-lead">
-            Compare a voz paga Leo (xAI via Speko) com as opções gratuitas do Edge TTS ajustadas para soar mais jovens e ágeis.
+            Compare as vozes do Google Cloud Chirp 3 HD (1 milhão de caracteres grátis/mês), Leo (Speko xAI) e Edge TTS gratuito.
           </p>
         </div>
-        <span className="frames-status completed">{voice === "leo" ? "xAI · Speko" : "Edge TTS · Grátis"}</span>
+        <span className="frames-status completed">
+          {voice === "leo" ? "xAI · Speko" : voice === "puck" || voice === "fenrir" ? "Google Chirp 3 HD" : "Edge TTS · Grátis"}
+        </span>
       </header>
 
       <section className="composer" style={{ maxWidth: 900 }}>
@@ -78,16 +80,20 @@ export default function VozPage() {
             <h2>Texto da amostra</h2>
             <p>O mesmo texto pode ser reutilizado para comparar as vozes.</p>
           </div>
-          <span className="step-label">{voice === "antonio" ? "Antonio · tom jovem" : voice === "andrew" ? "Andrew · multilíngue" : "Leo · português"}</span>
+          <span className="step-label">
+            {voice === "puck" ? "Chirp 3 · Puck" : voice === "fenrir" ? "Chirp 3 · Fenrir" : voice === "antonio" ? "Antonio · tom jovem" : voice === "andrew" ? "Andrew · multilíngue" : "Leo · português"}
+          </span>
         </div>
 
         <div className="form-body" style={{ marginTop: 20 }}>
           <div className="fields" style={{ marginBottom: 14 }}>
             <label>Voz
-              <select value={voice} onChange={(e) => setVoice(e.target.value as "leo" | "antonio" | "andrew")}>
+              <select value={voice} onChange={(e) => setVoice(e.target.value as "leo" | "puck" | "fenrir" | "antonio" | "andrew")}>
+                <option value="puck">Google Chirp 3 HD · Puck (1M grátis/mês · jovem dinâmico)</option>
+                <option value="fenrir">Google Chirp 3 HD · Fenrir (1M grátis/mês · jovem intenso)</option>
+                <option value="leo">Speko · Leo (xAI · consome créditos)</option>
                 <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
                 <option value="andrew">Edge TTS · Andrew Multilingual (Grátis · bom com nomes estrangeiros)</option>
-                <option value="leo">Speko · Leo (xAI · consome créditos)</option>
               </select>
             </label>
           </div>
@@ -115,7 +121,7 @@ export default function VozPage() {
           />
           <div className="form-footer">
             <p className="helper">
-              {text.length.toLocaleString("pt-BR")}/5.000 caracteres · {voice === "antonio" ? "Edge TTS · pt-BR-AntonioNeural (gratuito)" : voice === "andrew" ? "Edge TTS · en-US-AndrewMultilingualNeural (gratuito)" : "Speko · xAI · leo"}
+              {text.length.toLocaleString("pt-BR")}/5.000 caracteres · {voice === "puck" ? "Google Cloud · pt-BR-Chirp3-HD-Puck" : voice === "fenrir" ? "Google Cloud · pt-BR-Chirp3-HD-Fenrir" : voice === "antonio" ? "Edge TTS · pt-BR-AntonioNeural (gratuito)" : voice === "andrew" ? "Edge TTS · en-US-AndrewMultilingualNeural (gratuito)" : "Speko · xAI · leo"}
             </p>
             <button className="primary" type="button" onClick={generate} disabled={loading || !text.trim()}>
               {loading ? "Gerando áudio…" : audioUrl ? "Gerar novamente" : "Gerar prévia"}

@@ -102,7 +102,7 @@ export default function Page() {
   const [compMediaDir, setCompMediaDir] = useState<ComparacaoMedia | null>(null);
   const [compUpload, setCompUpload] = useState<"left" | "right" | null>(null);
   const [compCenas, setCompCenas] = useState<ComparacaoCena[]>([]);
-  const [compVoz, setCompVoz] = useState<"leo" | "antonio" | "andrew">("leo");
+  const [compVoz, setCompVoz] = useState<"leo" | "puck" | "fenrir" | "antonio" | "andrew">("leo");
   const [compMsg, setCompMsg] = useState("");
   const [compLoading, setCompLoading] = useState(false);
   const [compRenderLoading, setCompRenderLoading] = useState(false);
@@ -110,7 +110,7 @@ export default function Page() {
 
   const [histTitulo, setHistTitulo] = useState("");
   const [histContexto, setHistContexto] = useState("");
-  const [histVoz, setHistVoz] = useState<"leo" | "antonio" | "andrew">("leo");
+  const [histVoz, setHistVoz] = useState<"leo" | "puck" | "fenrir" | "antonio" | "andrew">("leo");
   const [histMusica, setHistMusica] = useState(true);
   const [histCenas, setHistCenas] = useState<StoryCena[]>([
     { speech: "", media: null, motion: "auto", hookTop: "", hookBottom: "" },
@@ -601,8 +601,10 @@ export default function Page() {
                   <div className="comparison-render">
                     <div className="fields" style={{ marginBottom: 12 }}>
                       <label>Voz da narração
-                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value as "leo" | "antonio" | "andrew")}>
+                        <select value={compVoz} onChange={(e) => setCompVoz(e.target.value as "leo" | "puck" | "fenrir" | "antonio" | "andrew")}>
                           <option value="leo">Speko · Leo (xAI · 1.08x ágil)</option>
+                          <option value="puck">Google Chirp 3 HD · Puck (1M grátis/mês · jovem)</option>
+                          <option value="fenrir">Google Chirp 3 HD · Fenrir (1M grátis/mês · intenso)</option>
                           <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
                           <option value="andrew">Edge TTS · Andrew Multilingual (Grátis · bom com nomes estrangeiros)</option>
                         </select>
@@ -633,8 +635,10 @@ export default function Page() {
                     <input type="text" value={histTitulo} onChange={(e) => setHistTitulo(e.target.value)} placeholder="Ex.: Por que Kira nunca será capitão" />
                   </label>
                   <label>Voz da narração
-                    <select value={histVoz} onChange={(e) => setHistVoz(e.target.value as "leo" | "antonio" | "andrew")}>
+                    <select value={histVoz} onChange={(e) => setHistVoz(e.target.value as "leo" | "puck" | "fenrir" | "antonio" | "andrew")}>
                       <option value="leo">Speko · Leo (xAI · 1.08x ágil)</option>
+                      <option value="puck">Google Chirp 3 HD · Puck (1M grátis/mês · jovem)</option>
+                      <option value="fenrir">Google Chirp 3 HD · Fenrir (1M grátis/mês · intenso)</option>
                       <option value="antonio">Edge TTS · Antonio (Grátis · +16% ritmo, +6Hz tom jovem)</option>
                       <option value="andrew">Edge TTS · Andrew Multilingual (Grátis)</option>
                     </select>
