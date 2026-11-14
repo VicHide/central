@@ -113,19 +113,21 @@ const MediaBackdrop: React.FC<{
   const frame = useCurrentFrame();
   const progress = Math.min(1, Math.max(0, frame / Math.max(1, durationInFrames - 1)));
 
-  let scale = 1.06;
+  let scale = 1.08;
   let tx = 0;
   if (motion === "zoom-in") {
-    scale = interpolate(progress, [0, 1], [1.0, 1.14]);
+    scale = interpolate(progress, [0, 1], [1.02, 1.24]);
   } else if (motion === "zoom-out") {
-    scale = interpolate(progress, [0, 1], [1.14, 1.0]);
+    scale = interpolate(progress, [0, 1], [1.24, 1.02]);
   } else if (motion === "pan-left") {
-    scale = 1.12;
-    tx = interpolate(progress, [0, 1], [28, -28]);
+    scale = 1.22;
+    tx = interpolate(progress, [0, 1], [74, -74]);
   } else if (motion === "pan-right") {
-    scale = 1.12;
-    tx = interpolate(progress, [0, 1], [-28, 28]);
+    scale = 1.22;
+    tx = interpolate(progress, [0, 1], [-74, 74]);
   }
+  const cutPunch = interpolate(frame, [0, 5], [1.06, 1], { extrapolateRight: "clamp" });
+  const cutFlash = interpolate(frame, [0, 5], [1.18, 1], { extrapolateRight: "clamp" });
 
   if (!media) {
     return (
@@ -150,8 +152,9 @@ const MediaBackdrop: React.FC<{
         style={{
           width: "100%",
           height: "100%",
-          transform: `translate3d(${tx}px, 0, 0) scale(${scale})`,
+          transform: `translate3d(${tx}px, 0, 0) scale(${scale * cutPunch})`,
           transformOrigin: "center center",
+          filter: `brightness(${cutFlash})`,
         }}
       >
         {mediaType === "video" ? (
@@ -264,14 +267,14 @@ const CenterCaption: React.FC<{
 
   const activeChunk = chunks[activeChunkIndex];
   const chunkAge = Math.max(0, frame - activeChunk[0].startFrame);
-  const pop = spring({ frame: chunkAge, fps, config: { damping: 15, stiffness: 240 } });
+  const pop = spring({ frame: chunkAge, fps, config: { damping: 12, stiffness: 320 } });
 
   return (
     <AbsoluteFill
       style={{
         alignItems: "center",
         justifyContent: "center",
-        padding: "0 56px",
+        padding: "0 52px",
         pointerEvents: "none",
       }}
     >
@@ -281,10 +284,11 @@ const CenterCaption: React.FC<{
           flexWrap: "wrap",
           justifyContent: "center",
           alignItems: "center",
-          gap: "8px 16px",
+          gap: "10px 18px",
           textAlign: "center",
           textTransform: "uppercase",
-          transform: `scale(${interpolate(pop, [0, 1], [0.9, 1])})`,
+          fontStyle: "italic",
+          transform: `scale(${interpolate(pop, [0, 1], [0.86, 1])}) rotate(-1deg)`,
         }}
       >
         {activeChunk.map((word, index) => {
@@ -293,14 +297,16 @@ const CenterCaption: React.FC<{
             <span
               key={`${activeChunkIndex}-${index}-${word.text}`}
               style={{
-                fontSize: 64,
+                display: "inline-block",
+                fontSize: 68,
                 fontWeight: 900,
-                lineHeight: 1.08,
-                letterSpacing: 0.5,
-                color: isSpoken ? "#ffe033" : "#f5c518",
+                lineHeight: 1.06,
+                letterSpacing: 0.8,
+                color: isSpoken ? "#ffe033" : "#ffffff",
+                transform: isSpoken ? "scale(1.1)" : "scale(1)",
                 paintOrder: "stroke fill",
-                WebkitTextStroke: "12px #000000",
-                textShadow: "0 5px 12px rgba(0, 0, 0, 0.7)",
+                WebkitTextStroke: "15px #000000",
+                textShadow: "0 6px 0 #000000, 0 12px 20px rgba(0, 0, 0, 0.78)",
               }}
             >
               {word.text}
