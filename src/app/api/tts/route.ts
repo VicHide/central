@@ -210,7 +210,7 @@ export async function POST(req: Request) {
     // Browsers cannot play raw PCM. Wrap signed 16-bit little-endian mono PCM
     // in a WAV container so the preview works without transcoding the samples.
     if (contentType.toLowerCase().startsWith("audio/pcm")) {
-      const rateMatch = contentType.match(/rate=(\\d+)/i);
+      const rateMatch = contentType.match(/rate=(\d+)/i);
       const sampleRate = rateMatch ? Number(rateMatch[1]) : 24000;
       const pcm = Buffer.from(await upstream.arrayBuffer());
 
