@@ -28,7 +28,8 @@ export async function POST(req: Request) {
     return Response.json({ erro: "Já existe uma tarefa em andamento. Aguarde ela terminar." }, { status: 409 });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const parsedBody = await req.json().catch(() => null);
+  const body = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody) ? parsedBody : {};
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
   const voice = body.voice === "puck" || body.voice === "fenrir" || body.voice === "antonio" || body.voice === "andrew" || body.voice === "leo" ? body.voice : "leo";
   const useMusic = body.useMusic !== false;
