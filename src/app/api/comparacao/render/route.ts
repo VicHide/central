@@ -27,7 +27,8 @@ function validMedia(value: unknown) {
 export async function POST(req: Request) {
   if (temJobRodando()) return Response.json({ erro: "Já existe uma tarefa em andamento. Aguarde ela terminar." }, { status: 409 });
 
-  const body = await req.json().catch(() => ({}));
+  const parsedBody = await req.json().catch(() => ({}));
+  const body = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody) ? parsedBody : {};
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
   const leftLabel = typeof body.leftLabel === "string" ? body.leftLabel.trim().slice(0, 80) : "";
   const rightLabel = typeof body.rightLabel === "string" ? body.rightLabel.trim().slice(0, 80) : "";
@@ -39,12 +40,12 @@ export async function POST(req: Request) {
   if (!title || !leftLabel || !rightLabel) {
     return Response.json({ erro: "Informe o tema e os nomes dos quadros." }, { status: 400 });
   }
-  if (scenes.length < 5 || scenes.length > 10 || scenes.some((scene) =>
+  if (scenes.length < 6 || scenes.length > 8 || scenes.some((scene) =>
     !scene || typeof scene.speech !== "string" || !scene.speech.trim() || scene.speech.length > 1800 ||
     !["left", "right", "none"].includes(scene.active) ||
     !["neutral", "doubt", "surprise"].includes(scene.expression)
   )) {
-    return Response.json({ erro: "O roteiro precisa ter de 8 a 10 cenas válidas, com falas preenchidas." }, { status: 400 });
+    return Response.json({ erro: "O roteiro precisa ter de 6 a 8 cenas válidas, com falas preenchidas." }, { status: 400 });
   }
   const hasSceneMedia = scenes.some((s) => Boolean(validMedia(s.leftMedia) || validMedia(s.rightMedia)));
   if (!leftMedia && !rightMedia && !hasSceneMedia) return Response.json({ erro: "Envie pelo menos uma imagem ou vídeo para montar a comparação." }, { status: 400 });
@@ -69,13 +70,14 @@ export async function POST(req: Request) {
 
   const totalWords = scenes.reduce((sum, scene) => sum + scene.speech.trim().split(/\s+/).length, 0);
   const estimatedSeconds = Math.max(10, Math.round(totalWords / 2.6));
-  const voiceLabel = voice === "antonio"
-    ? "Edge TTS · Antonio (Tom jovem)"
-    : voice === "andrew"
-      ? "Edge TTS · Andrew Multilingual"
-      : process.env.SPEKO_API_KEY
-        ? "Speko · Leo (xAI)"
-        : "Edge TTS · Antonio (Tom jovem)";
+  const voiceLabels: Record<typeof voice, string> = {
+    leo: process.env.SPEKO_API_KEY ? "Speko · Leo (xAI)" : "Edge TTS · Antonio (fallback do Leo)",
+    puck: "Google Chirp 3 HD · Puck",
+    fenrir: "Google Chirp 3 HD · Fenrir",
+    antonio: "Edge TTS · Antonio",
+    andrew: "Edge TTS · Andrew Multilingual",
+  };
+  const voiceLabel = voiceLabels[voice];
   const job = iniciaJob("Comparação · " + title, ["tsx", "src/core/comparacao.ts", "--id", id], {
     n: scenes.length,
     render: true,
