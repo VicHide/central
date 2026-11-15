@@ -7,7 +7,9 @@ const TEXTO_TESTE = "Você acha que conhece esse personagem? Então espera até 
 
 export default function VozPage() {
   const [text, setText] = useState(TEXTO_TESTE);
-  const [voice, setVoice] = useState<"leo" | "puck" | "fenrir" | "antonio" | "andrew">("puck");
+  const [voice, setVoice] = useState<"leo" | "puck" | "fenrir" | "antonio" | "andrew" | "voicestudio">("voicestudio");
+  const [voiceStudioUrl, setVoiceStudioUrl] = useState("http://127.0.0.1:3900");
+  const [voiceStudioInstruct, setVoiceStudioInstruct] = useState("male, young adult, moderate pitch");
   const [audioUrl, setAudioUrl] = useState("");
   const [contentType, setContentType] = useState("");
   const [message, setMessage] = useState("");
@@ -29,7 +31,11 @@ export default function VozPage() {
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voice }),
+        body: JSON.stringify({
+          text,
+          voice,
+          ...(voice === "voicestudio" ? { voiceStudioUrl, voiceStudioInstruct } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -70,7 +76,7 @@ export default function VozPage() {
           </p>
         </div>
         <span className="frames-status completed">
-          {voice === "leo" ? "xAI · Speko" : voice === "puck" || voice === "fenrir" ? "Google Chirp 3 HD" : "Edge TTS · Grátis"}
+          {voice === "voicestudio" ? "VoiceStudio · Local" : voice === "leo" ? "xAI · Speko" : voice === "puck" || voice === "fenrir" ? "Google Chirp 3 HD" : "Edge TTS · Grátis"}
         </span>
       </header>
 
@@ -81,14 +87,15 @@ export default function VozPage() {
             <p>O mesmo texto pode ser reutilizado para comparar as vozes.</p>
           </div>
           <span className="step-label">
-            {voice === "puck" ? "Chirp 3 · Puck" : voice === "fenrir" ? "Chirp 3 · Fenrir" : voice === "antonio" ? "Antonio · tom jovem" : voice === "andrew" ? "Andrew · multilíngue" : "Leo · português"}
+            {voice === "voicestudio" ? "VoiceStudio · Local" : voice === "puck" ? "Chirp 3 · Puck" : voice === "fenrir" ? "Chirp 3 · Fenrir" : voice === "antonio" ? "Antonio · tom jovem" : voice === "andrew" ? "Andrew · multilíngue" : "Leo · português"}
           </span>
         </div>
 
         <div className="form-body" style={{ marginTop: 20 }}>
           <div className="fields" style={{ marginBottom: 14 }}>
             <label>Voz
-              <select value={voice} onChange={(e) => setVoice(e.target.value as "leo" | "puck" | "fenrir" | "antonio" | "andrew")}>
+              <select value={voice} onChange={(e) => setVoice(e.target.value as "leo" | "puck" | "fenrir" | "antonio" | "andrew" | "voicestudio")}>
+                <option value="voicestudio">VoiceStudio · Local (Gratuito · OpenAI-compat /v1/audio/speech)</option>
                 <option value="puck">Google Chirp 3 HD · Puck (1M grátis/mês · jovem dinâmico)</option>
                 <option value="fenrir">Google Chirp 3 HD · Fenrir (1M grátis/mês · jovem intenso)</option>
                 <option value="leo">Speko · Leo (xAI · consome créditos)</option>
@@ -96,6 +103,16 @@ export default function VozPage() {
                 <option value="andrew">Edge TTS · Andrew Multilingual (Grátis · bom com nomes estrangeiros)</option>
               </select>
             </label>
+            {voice === "voicestudio" && (
+              <>
+                <label>URL Local do VoiceStudio
+                  <input type="text" value={voiceStudioUrl} onChange={(e) => setVoiceStudioUrl(e.target.value)} placeholder="http://127.0.0.1:3900" />
+                </label>
+                <label>Tags de Voz (OmniVoice)
+                  <input type="text" value={voiceStudioInstruct} onChange={(e) => setVoiceStudioInstruct(e.target.value)} placeholder="male, young adult, moderate pitch" />
+                </label>
+              </>
+            )}
           </div>
           <label htmlFor="tts-text">Texto para narrar</label>
           <textarea
@@ -112,7 +129,7 @@ export default function VozPage() {
               padding: 12,
               border: "1px solid var(--border)",
               borderRadius: 9,
-              background: "#fbfcfa",
+              background: "var(--ground)",
               color: "var(--text)",
               font: "inherit",
               fontSize: 13,
@@ -121,7 +138,7 @@ export default function VozPage() {
           />
           <div className="form-footer">
             <p className="helper">
-              {text.length.toLocaleString("pt-BR")}/5.000 caracteres · {voice === "puck" ? "Google Cloud · pt-BR-Chirp3-HD-Puck" : voice === "fenrir" ? "Google Cloud · pt-BR-Chirp3-HD-Fenrir" : voice === "antonio" ? "Edge TTS · pt-BR-AntonioNeural (gratuito)" : voice === "andrew" ? "Edge TTS · en-US-AndrewMultilingualNeural (gratuito)" : "Speko · xAI · leo"}
+              {text.length.toLocaleString("pt-BR")}/5.000 caracteres · {voice === "voicestudio" ? `VoiceStudio (${voiceStudioUrl})` : voice === "puck" ? "Google Cloud · pt-BR-Chirp3-HD-Puck" : voice === "fenrir" ? "Google Cloud · pt-BR-Chirp3-HD-Fenrir" : voice === "antonio" ? "Edge TTS · pt-BR-AntonioNeural (gratuito)" : voice === "andrew" ? "Edge TTS · en-US-AndrewMultilingualNeural (gratuito)" : "Speko · xAI · leo"}
             </p>
             <button className="primary" type="button" onClick={generate} disabled={loading || !text.trim()}>
               {loading ? "Gerando áudio…" : audioUrl ? "Gerar novamente" : "Gerar prévia"}

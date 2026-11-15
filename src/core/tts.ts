@@ -10,7 +10,7 @@ const SPEKO_URL = "https://api.speko.dev/v1/synthesize";
 const GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize";
 export const SPEKO_RATE = 1.08;
 
-export type TtsVoice = "leo" | "puck" | "fenrir" | "antonio" | "andrew";
+export type TtsVoice = "leo" | "puck" | "fenrir" | "antonio" | "andrew" | "voicestudio";
 
 export type TtsWord = {
   text: string;
@@ -61,6 +61,23 @@ export function getGoogleTtsApiKey() {
   if (!fs.existsSync(envPath)) return "";
   const match = fs.readFileSync(envPath, "utf8").match(/^GOOGLE_TTS_API_KEY=(.+)$/m);
   return match ? match[1].trim().replace(/^["']|["']$/g, "") : "";
+}
+
+function readEnvVar(name: string, fallback = "") {
+  if (process.env[name]) return process.env[name] as string;
+  const envPath = path.join(process.cwd(), ".env.local");
+  if (!fs.existsSync(envPath)) return fallback;
+  const match = fs.readFileSync(envPath, "utf8").match(new RegExp(`^${name}=(.+)$`, "m"));
+  return match ? match[1].trim().replace(/^["']|["']$/g, "") : fallback;
+}
+
+export function getVoiceStudioConfig() {
+  return {
+    url: readEnvVar("VOICESTUDIO_URL", "http://127.0.0.1:3900").replace(/\/+$/, ""),
+    instruct: readEnvVar("VOICESTUDIO_INSTRUCT", "male, young adult, low pitch"),
+    model: readEnvVar("VOICESTUDIO_MODEL", "omnivoice"),
+    voiceId: readEnvVar("VOICESTUDIO_VOICE_ID", ""),
+  };
 }
 
 function mp3Duration(buffer: Buffer) {
@@ -263,12 +280,58 @@ async function geraGoogleChirp3(
   return { fileName, durationSec: mp3Duration(mp3) };
 }
 
+async function geraVoiceStudio(
+  originalText: string,
+  audioDir: string,
+  baseName: string,
+): Promise<{ fileName: string; durationSec: number }> {
+  const cfg = getVoiceStudioConfig();
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.url}/v1/audio/speech`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: cfg.model,
+        input: originalText,
+        ...(cfg.voiceId ? { voice: cfg.voiceId } : { voice: cfg.instruct }),
+        instruct: cfg.instruct,
+        language: "pt",
+        response_format: "wav",
+      }),
+      signal: AbortSignal.timeout(180_000),
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`VoiceStudio offline ou inacessível em ${cfg.url} (${msg}). Abra o VoiceStudio ou ajuste VOICESTUDIO_URL no .env.local.`);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`VoiceStudio retornou erro ${res.status}: ${detail.slice(0, 200)}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (!buf.length) throw new Error("O VoiceStudio retornou um áudio vazio.");
+  const isWav = contentType.includes("wav") || buf.toString("ascii", 0, 4) === "RIFF";
+  const fileName = `${baseName}.${isWav ? "wav" : "mp3"}`;
+  fs.writeFileSync(path.join(audioDir, fileName), buf);
+  const durationSec = isWav ? wavDuration(buf) : mp3Duration(buf);
+  return { fileName, durationSec };
+}
+
 export async function sintetizaFala(
   originalSpeech: string,
   audioDir: string,
   baseName: string,
   requestedVoice: TtsVoice = "leo",
 ): Promise<{ fileName: string; durationSec: number; audioRate: number; words?: TtsWord[] }> {
+  if (requestedVoice === "voicestudio") {
+    const res = await geraVoiceStudio(originalSpeech, audioDir, baseName);
+    return { fileName: res.fileName, durationSec: res.durationSec, audioRate: 1 };
+  }
+
   if (requestedVoice === "puck" || requestedVoice === "fenrir") {
     const res = await geraGoogleChirp3(originalSpeech, audioDir, baseName, GOOGLE_VOICES[requestedVoice]);
     return { fileName: res.fileName, durationSec: res.durationSec, audioRate: 1 };

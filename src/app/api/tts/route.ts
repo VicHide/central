@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { aplicaPronuncia } from "@/core/pronuncia";
 import { getGoogleAccessToken } from "@/core/googleAuth";
+import { getVoiceStudioConfig } from "@/core/tts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,8 +60,8 @@ async function geraEdgeVoz(text: string, key: keyof typeof EDGE_VOICES): Promise
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const text = typeof body?.text === "string" ? body.text.trim() : "";
-  const voice: "leo" | "puck" | "fenrir" | "antonio" | "andrew" =
-    body?.voice === "puck" || body?.voice === "fenrir" || body?.voice === "antonio" || body?.voice === "andrew"
+  const voice: "leo" | "puck" | "fenrir" | "antonio" | "andrew" | "voicestudio" =
+    body?.voice === "puck" || body?.voice === "fenrir" || body?.voice === "antonio" || body?.voice === "andrew" || body?.voice === "voicestudio"
       ? body.voice
       : "leo";
 
@@ -72,6 +73,51 @@ export async function POST(req: Request) {
       { erro: `O texto deve ter no máximo ${MAX_CHARS.toLocaleString("pt-BR")} caracteres por teste.` },
       { status: 413 }
     );
+  }
+
+  if (voice === "voicestudio") {
+    const cfg = getVoiceStudioConfig();
+    const url = (typeof body?.voiceStudioUrl === "string" && body.voiceStudioUrl.trim() ? body.voiceStudioUrl.trim() : cfg.url).replace(/\/+$/, "");
+    const instruct = typeof body?.voiceStudioInstruct === "string" && body.voiceStudioInstruct.trim()
+      ? body.voiceStudioInstruct.trim()
+      : cfg.instruct;
+    const voiceId = typeof body?.voiceStudioVoiceId === "string" && body.voiceStudioVoiceId.trim()
+      ? body.voiceStudioVoiceId.trim()
+      : cfg.voiceId;
+    try {
+      const upstream = await fetch(`${url}/v1/audio/speech`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: cfg.model,
+          input: text,
+          voice: voiceId || instruct,
+          instruct,
+          language: "pt",
+          response_format: "wav",
+        }),
+        signal: AbortSignal.timeout(180_000),
+      });
+      if (!upstream.ok) {
+        const detail = await upstream.text().catch(() => "");
+        return Response.json(
+          { erro: `VoiceStudio retornou erro ${upstream.status}${detail ? `: ${detail.slice(0, 200)}` : "."}` },
+          { status: upstream.status >= 400 ? upstream.status : 502 },
+        );
+      }
+      const audioBuffer = await upstream.arrayBuffer();
+      const contentType = upstream.headers.get("content-type") || "audio/wav";
+      return new Response(audioBuffer, {
+        status: 200,
+        headers: { "Content-Type": contentType, "Cache-Control": "no-store" },
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      return Response.json(
+        { erro: `Não foi possível conectar ao VoiceStudio em ${url} (${detail}). Verifique se o servidor local está ativo.` },
+        { status: 502 },
+      );
+    }
   }
 
   const spokenText = aplicaPronuncia(text);

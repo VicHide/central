@@ -32,11 +32,13 @@ const arg = (name: string) => {
 
 function safeMedia(relative: string) {
   if (!relative) return "";
-  if (!/^comparacoes\/[a-f0-9-]+\.(jpg|png|webp|mp4|webm|mov)$/i.test(relative)) {
+  const isComparacoes = /^comparacoes\/[a-f0-9-]+\.(jpg|png|webp|mp4|webm|mov)$/i.test(relative);
+  const isStudio = /^studio\/[a-z0-9-]+\/[a-z0-9._-]+\.(jpg|jpeg|png|webp|mp4|webm|mov)$/i.test(relative);
+  if (!isComparacoes && !isStudio) {
     throw new Error("Arquivo de mídia inválido.");
   }
   const file = path.resolve(RAIZ, "public", relative);
-  const root = path.resolve(RAIZ, "public", "comparacoes");
+  const root = path.resolve(RAIZ, "public", isStudio ? "studio" : "comparacoes");
   if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) {
     throw new Error("Uma das mídias enviadas não foi encontrada.");
   }

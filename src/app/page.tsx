@@ -460,7 +460,8 @@ export default function Page() {
           <button type="button" className={pagina === "biblioteca" ? "nav-link active" : "nav-link"} onClick={() => setPagina("biblioteca")}>Biblioteca</button>
           <button type="button" className={pagina === "thumbnails" ? "nav-link active" : "nav-link"} onClick={() => setPagina("thumbnails")}>Thumbnails</button>
           <button type="button" className={pagina === "publicacao" ? "nav-link active" : "nav-link"} onClick={() => setPagina("publicacao")}>Publicação</button>
-          <a className="nav-link" href="/voz">Teste de voz · Leo</a>
+          <a className="nav-link" href="/studio">Produção com IA (Studio)</a>
+          <a className="nav-link" href="/voz">Voz & TTS (VoiceStudio)</a>
           <a className="nav-link" href="/fancaps">FanCaps Downloader</a>
           <a className="nav-link" href="/frames">Detector de frames</a>
         </nav>
