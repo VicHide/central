@@ -24,7 +24,8 @@ export async function POST(req: Request) {
     return Response.json({ erro: "Configure OPENAI_API_KEY no arquivo .env.local e reinicie o painel." }, { status: 503 });
   }
 
-  const body = await req.json().catch(() => ({}));
+  const parsedBody = await req.json().catch(() => null);
+  const body = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody) ? parsedBody : {};
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
   const leftLabel = typeof body.leftLabel === "string" ? body.leftLabel.trim().slice(0, 80) : "";
   const rightLabel = typeof body.rightLabel === "string" ? body.rightLabel.trim().slice(0, 80) : "";
