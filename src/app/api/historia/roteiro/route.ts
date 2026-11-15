@@ -9,7 +9,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const body = await req.json().catch(() => ({}));
+  const parsedBody = await req.json().catch(() => null);
+  const body = parsedBody && typeof parsedBody === "object" && !Array.isArray(parsedBody) ? parsedBody : {};
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 140) : "";
   const context = typeof body.context === "string" ? body.context.trim().slice(0, 3000) : "";
 
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
       hookBottom: string;
       scenes: Array<{ speech: string }>;
     };
-    if (!Array.isArray(parsed.scenes) || parsed.scenes.length < 6) throw new Error("invalid");
+    if (!Array.isArray(parsed.scenes) || parsed.scenes.length < 6 || parsed.scenes.length > 8 || parsed.scenes.some((scene) => typeof scene?.speech !== "string" || !scene.speech.trim())) throw new Error("invalid");
     return Response.json(parsed);
   } catch {
     return Response.json({ erro: "Resposta inesperada da IA. Tente novamente." }, { status: 502 });
